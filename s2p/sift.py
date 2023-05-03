@@ -15,6 +15,8 @@ import ransac
 from s2p import rpc_utils
 from s2p import estimation
 
+import cv2 as cv
+
 # Locate sift4ctypes library and raise an ImportError if it can not be
 # found This call will raise an exception if library can not be found,
 # at import time
@@ -280,3 +282,137 @@ def matches_on_rpc_roi(im1, im2, rpc1, rpc2, x, y, w, h,
         print("WARNING: sift.matches_on_rpc_roi: found no matches.")
         return None
     return matches
+
+
+
+
+
+
+def image_keypoints_cv(im, x, y, w, h, max_nb=None, thresh_dog=0.0133, nb_octaves=8, nb_scales=3):
+    """
+    Runs SIFT (the keypoints detection and description only, no matching).
+
+    It uses Ives Rey Otero's implementation published in IPOL:
+    http://www.ipol.im/pub/pre/82/
+
+    Args:
+        im (str): path to the input image
+        max_nb (optional): maximal number of keypoints. If more keypoints are
+            detected, those at smallest scales are discarded
+
+    Returns:
+        numpy array of shape (n, 132) containing, on each row: (y, x, s, o, 128-descriptor)
+    """
+    # Read file with rasterio
+    with rio.open(im) as ds:
+        # clip roi to stay inside the image boundaries
+        if x < 0:  # if x is negative then replace it with 0 and reduce w
+            w += x
+            x = 0
+        if y < 0:
+            h += y
+            y = 0
+        # if extract not completely inside the full image then resize (w, h)
+        w = min(w, ds.width - x)
+        h = min(h, ds.height - y)
+        in_buffer = ds.read(window=rio.windows.Window(x, y, w, h))
+    
+#    im_adjusted =  cv.normalize(in_buffer[0] - cv.GaussianBlur(in_buffer[0], [11,11],5), cv.NORM_MINMAX, 0, 255).converTo(cv.CV_8U)
+
+    from s2p import common
+    im_adjusted = common.linear_stretching_and_quantization_8bit (in_buffer[0], 0.1)
+
+    #common.rasterio_write('tt.tif', im_adjusted )
+
+    # Detect keypoints on first band
+    SIFT = cv.SIFT_create()
+    kp1, des1 = SIFT.detectAndCompute(im_adjusted, None)
+
+    # keypoints = keypoints_from_nparray(in_buffer[0], thresh_dog=thresh_dog,
+    #                                    nb_octaves=nb_octaves,
+    #                                    nb_scales=nb_scales, offset=(x, y))
+     # apply offset
+    for i in range(len(kp1)):
+        kp1[i].pt = (kp1[i].pt[0]+x, kp1[i].pt[1]+y)
+
+    # # Limit number of keypoints if needed
+    # if max_nb is not None:
+    #     keypoints = keypoints[:max_nb]
+
+    return kp1, des1
+
+
+def matches_on_rpc_roi_cv(im1, im2, rpc1, rpc2, x, y, w, h,
+                       method, sift_thresh, epipolar_threshold):
+    """
+    Compute a list of SIFT matches between two images on a given roi.
+
+    The corresponding roi in the second image is determined using the rpc
+    functions.
+
+    Args:
+        im1, im2: paths to two large tif images
+        rpc1, rpc2: two instances of the rpcm.RPCModel class
+        x, y, w, h: four integers defining the rectangular ROI in the first
+            image. (x, y) is the top-left corner, and (w, h) are the dimensions
+            of the rectangle.
+        method, sift_thresh, epipolar_threshold: see docstring of
+            s2p.sift.keypoints_match()
+
+    Returns:
+        matches: 2D numpy array containing a list of matches. Each line
+            contains one pair of points, ordered as x1 y1 x2 y2.
+            The coordinate system is that of the full images.
+    """
+    x2, y2, w2, h2 = rpc_utils.corresponding_roi(rpc1, rpc2, x, y, w, h)
+
+    # estimate an approximate affine fundamental matrix from the rpcs
+    rpc_matches = rpc_utils.matches_from_rpc(rpc1, rpc2, x, y, w, h, 5)
+    F = estimation.affine_fundamental_matrix(rpc_matches)
+
+    # if less than 10 matches, lower thresh_dog. An alternative would be ASIFT
+    thresh_dog = 0.0133
+    for _ in range(2):
+
+        kp1, des1 = image_keypoints_cv(im1, x, y, w, h, thresh_dog=thresh_dog)
+        kp2, des2 = image_keypoints_cv(im2, x2, y2, w2, h2, thresh_dog=thresh_dog)
+
+        # BFMatcher with default params
+        bf = cv.BFMatcher()
+        matches = bf.knnMatch(des1, des2, k=2)
+
+        # Apply ratio test manually
+        good_matches = []
+        for m,n in matches:
+            if m.distance < 0.75*n.distance:
+                good_matches.append([m])
+        #good_matches = matches
+
+        # Select good matched keypoints
+        ref_matched_kpts = np.float32([kp1[m[0].queryIdx].pt for m in good_matches])
+        sec_matched_kpts = np.float32([kp2[m[0].trainIdx].pt for m in good_matches])
+
+        print (ref_matched_kpts)
+        
+        # Compute homography using RANSAC
+        H, status = cv.findHomography(sec_matched_kpts, ref_matched_kpts, cv.RANSAC, 5.0)
+
+
+#        matches = keypoints_match(p1, p2, method, sift_thresh, F,
+#                                  epipolar_threshold=epipolar_threshold,
+#                                  model='fundamental')
+        if len(good_matches) > 10 :
+            break
+        thresh_dog /= 2.0
+    else:
+        print("WARNING: sift.matches_on_rpc_roi: found no matches.")
+        return None
+    matchesarray = np.float32( [ (kp1[m[0].queryIdx].pt[0],kp1[m[0].queryIdx].pt[1],  kp2[m[0].trainIdx].pt[0],  kp2[m[0].trainIdx].pt[1])  for m in good_matches])
+
+    return matchesarray
+
+
+
+
+    
+

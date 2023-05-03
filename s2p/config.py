@@ -62,6 +62,11 @@ cfg['dsm_radius'] = 0
 # (dsm_resolution by default)
 cfg['dsm_sigma'] = None
 
+# use the opencv's implementation of SIFT, which works on 8 bit images so the inputs 
+# are rescaled, by default IPOL's SIFT is used, which works on images with any range depth
+# Most of the SIFT options below are not used by opencv's SIFT (it's just faster).
+cfg['sift_use_opencv_implementation'] = False
+
 # relative sift match threshold (else sift match threshold is absolute)
 cfg['relative_sift_match_thresh'] = True
 

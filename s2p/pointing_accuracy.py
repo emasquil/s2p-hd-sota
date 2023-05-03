@@ -121,7 +121,11 @@ def compute_correction(img1, img2, rpc1, rpc2, x, y, w, h,
         order to correct the pointing error, and the list of sift matches used
         to compute this correction.
     """
-    m = sift.matches_on_rpc_roi(img1, img2, rpc1, rpc2, x, y, w, h,
+    if cfg['sift_use_opencv_implementation'] == True:
+        m = sift.matches_on_rpc_roi_cv(img1, img2, rpc1, rpc2, x, y, w, h,
+                                method, sift_thresh, epipolar_threshold)
+    else:
+        m = sift.matches_on_rpc_roi(img1, img2, rpc1, rpc2, x, y, w, h,
                                 method, sift_thresh, epipolar_threshold)
 
     if m is not None:

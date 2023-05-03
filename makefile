@@ -9,7 +9,9 @@ IIOLIBS     = -lz -ltiff -lpng -ljpeg -lm
 
 
 # default rule builds only the programs necessary for the test
-default: homography sift mgm_multi tvl1 lsd executables libraries
+default: homography sift mgm_multi tvl1 lsd executables libraries sgm_gpu
+	
+	
 
 # the "all" rule builds three further correlators
 all: default msmw3 sgbm
@@ -21,6 +23,8 @@ test: default
 #
 # four standard "modules": homography, sift, mgm, and mgm_multi
 #
+
+
 
 homography:
 	$(MAKE) -j -C 3rdparty/homography
@@ -85,6 +89,13 @@ msmw2:
 	mkdir -p bin/build_msmw2
 	cd bin/build_msmw2; cmake -D CMAKE_BUILD_TYPE=Release ../../3rdparty/msmw2; $(MAKE)
 	cp bin/build_msmw2/libstereo_newversion/iip_stereo_correlation_multi_win2_newversion bin
+
+
+sgm_gpu:
+	mkdir -p bin/build_sgm_gpu
+	cd bin/build_sgm_gpu; cmake -D CMAKE_BUILD_TYPE=Release ../../3rdparty/sgm_gpu-develop-for-s2p; $(MAKE)
+	cp bin/build_sgm_gpu/stereosgm bin
+
 
 
 

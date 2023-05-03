@@ -152,6 +152,37 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         common.run('{0} -m {1} -M {2} -il {3} -ir {4} -dl {5} -kl {6}'.format(
                 bm_binary, disp_min, disp_max, im1, im2, disp, mask))
 
+
+    if algo == 'stereosgm':
+        env['MEDIAN'] = '1'
+        env['CENSUS_NCC_WIN'] = str(cfg['census_ncc_win'])
+        env['TESTLRRL']       = str(cfg['mgm_leftright_control'])
+        env['TESTLRRL_TAU']   = str(cfg['mgm_leftright_threshold'])
+
+        nb_dir = cfg['mgm_nb_directions']
+
+        conf = '{}_confidence.tif'.format(os.path.splitext(disp)[0])
+
+        common.run(
+            'sem -j 2 --id sgm --fg '  '{executable} '
+            '--min_disp={disp_min} '
+            '--subpixel '
+            '--num_paths={nb_dir} '
+            '--uniqueness=0.95 '
+            '{im1} {im2} {disp}'.format(
+                executable='stereosgm',
+                disp_min=disp_min,
+                nb_dir=nb_dir,
+                im1=im1,
+                im2=im2,
+                disp=disp,
+            ),
+            env=env,
+            timeout=timeout,
+        )
+
+        create_rejection_mask(disp, im1, im2, mask)
+
     if algo == 'mgm':
         env['MEDIAN'] = '1'
         env['CENSUS_NCC_WIN'] = str(cfg['census_ncc_win'])

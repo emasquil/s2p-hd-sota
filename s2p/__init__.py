@@ -181,13 +181,21 @@ def stereo_matching(tile, i):
     mask = os.path.join(out_dir, 'rectified_mask.png')
     disp_min, disp_max = np.loadtxt(os.path.join(out_dir, 'disp_min_max.txt'))
 
-    block_matching.compute_disparity_map(rect1, rect2, disp, mask,
-                                         cfg['matching_algorithm'], disp_min,
-                                         disp_max, timeout=cfg['mgm_timeout'],
-                                         max_disp_range=cfg['max_disp_range'])
+    try:
+        # block_matching might fail (due to timeout)
+        block_matching.compute_disparity_map(rect1, rect2, disp, mask,
+                                             cfg['matching_algorithm'], disp_min,
+                                             disp_max, timeout=cfg['mgm_timeout'],
+                                             max_disp_range=cfg['max_disp_range'])
+    
+        # add margin around masked pixels
+        masking.erosion(mask, mask, cfg['msk_erosion'])
+    except Exception as e:
+        # in case of timeout we should take note
+        # TODO: take note of the failed block matching
+        print('ERROR: block_matching.compute_disparity_map has failed to generate: ${disp}')
+        print ("Unexpected error:", e)
 
-    # add margin around masked pixels
-    masking.erosion(mask, mask, cfg['msk_erosion'])
 
     if cfg['clean_intermediate']:
         if len(cfg['images']) > 2:
@@ -265,6 +273,12 @@ def disparity_to_ply(tile):
         extra = ''
     mask_rect = os.path.join(out_dir, 'pair_1', 'rectified_mask.png')
     mask_orig = os.path.join(out_dir, 'mask.png')
+
+    # first check if disp exists for this tile
+    if os.path.exists(disp) is False:
+        #TODO: take note of the missing tile and move to the next
+        print('ERROR: disparity_to_ply missing input file: ${disp}')
+        return
 
     # prepare the image needed to colorize point cloud
     if cfg['images'][0]['clr']:
@@ -440,9 +454,16 @@ def plys_to_dsm(tile):
     out_conf = os.path.join(tile['dir'], 'confidence.tif')
     r = cfg['dsm_resolution']
 
+    in_ply = os.path.join(tile['dir'],'cloud.ply')
+    # first check if ply exists (it might not exist because of a failed blockmatching)
+    if os.path.exists(in_ply) is False:
+        # TODO: take note of the missing part of the DSM
+        print('ERROR: plys_to_dsm missing input file: ${in_ply}')
+        return 
+
     # compute the point cloud x, y bounds
-    points, _ = ply.read_3d_point_cloud_from_ply(os.path.join(tile['dir'],
-                                                              'cloud.ply'))
+    points, _ = ply.read_3d_point_cloud_from_ply(in_ply)
+
     if len(points) == 0:
         return
 
@@ -458,7 +479,12 @@ def plys_to_dsm(tile):
 
     roi = xoff, yoff, xsize, ysize
 
-    clouds = [os.path.join(tile['dir'], n_dir, 'cloud.ply') for n_dir in tile['neighborhood_dirs']]
+    # since some tiles might have failed we test for the neighborhood tiles before feeding them to merge
+    clouds = []
+    for n_dir in tile['neighborhood_dirs']:
+        nply = os.path.join(tile['dir'], n_dir, 'cloud.ply')
+        if os.path.exists(nply):
+            clouds.append(nply)
     raster, profile = plyflatten_from_plyfiles_list(clouds,
                                                     resolution=r,
                                                     roi=roi,

@@ -254,9 +254,9 @@ def cargarse_basura(inputf, outputf):
     tmp2 = outputf + '2.tif'
     tmpM = outputf + 'M.tif'
     run('morphoop %s min %d %s' % (inputf, se, tmpM))
-    run('morphoop %s max %d %s' % (inputf, se, tmp1))
+    run('morphoop %s max %d %s' % (tmpM  , se, tmp1))
     run('morphoop %s max %d %s' % (inputf, se, tmpM))
-    run('morphoop %s min %d %s' % (inputf, se, tmp2))
+    run('morphoop %s min %d %s' % (tmpM  , se, tmp2))
     run(["plambda", tmp1, tmp2, inputf, "x y - fabs %d > nan z if" % 5, "-o", tmpM])
     run('remove_small_cc %s %s %d %d' % (tmpM, outputf, 200, 5))
     run('rm -f %s %s %s' % (tmp1, tmp2, tmpM))

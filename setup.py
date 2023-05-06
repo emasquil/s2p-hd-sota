@@ -51,7 +51,8 @@ requirements = ['numpy',
                 'plyfile',
                 'plyflatten>=0.2.0',
                 'ransac',
-                'rpcm>=1.4.6',
+                #'rpcm>=1.4.6',
+                'rpcm @ git+ssh://git@github.com/centreborelli/rpcm',
                 'srtm4>=1.1.2',
                 'requests']
 

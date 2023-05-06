@@ -160,14 +160,6 @@ In the json configuration files, input and output paths are relative to the json
 file location, not to the current working directory.
 
 
-### MicMac (optional)
-
-If you want to use MicMac for the stereo matching step, you must install it
-first and create a symlink to the micmac directory (the one containing a 'bin'
-folder with a bunch of executables in it, among with 'MICMAC' and 'mm3d') in
-the 'bin' folder:
-
-    ln -s PATH_TO_YOUR_MICMAC_DIR bin/micmac
 
 
 ## References

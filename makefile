@@ -9,7 +9,7 @@ IIOLIBS     = -lz -ltiff -lpng -ljpeg -lm
 
 
 # default rule builds only the programs necessary for the test
-default: homography sift mgm_multi tvl1 lsd executables libraries sgm_gpu
+default: homography sift mgm_multi tvl1 executables libraries #sgm_gpu
 	
 	
 
@@ -39,10 +39,6 @@ mgm_multi:
 	cp 3rdparty/mgm_multi/mgm       bin
 	cp 3rdparty/mgm_multi/mgm_multi bin
 
-lsd:
-	$(MAKE) -C 3rdparty/lsd
-	cp 3rdparty/lsd/lsd bin
-
 tvl1:
 	$(MAKE) -C 3rdparty/tvl1flow
 	cp 3rdparty/tvl1flow/tvl1flow bin
@@ -55,17 +51,12 @@ mgm:
 
 
 #
-# rules for optional "modules": msmw, asift, sgbm, tvl1, etc
+# rules for optional "modules": sgbm, tvl1, etc
 #
 
 msmw3:
 	make -C 3rdparty/msmw3
 	cp 3rdparty/msmw3/msmw bin
-
-asift:
-	mkdir -p bin/build_asift
-	cd bin/build_asift; cmake -D CMAKE_BUILD_TYPE=Release ../../3rdparty/demo_ASIFT_src; $(MAKE)
-	cp bin/build_asift/demo_ASIFT bin
 
 sgbm:
 	$(MAKE) -C 3rdparty/sgbm
@@ -79,11 +70,6 @@ sgbm_opencv:
 	cp 3rdparty/stereo_hirschmuller_2008/callSGBM.sh bin
 	cp 3rdparty/stereo_hirschmuller_2008/callSGBM_lap.sh bin
 	cp 3rdparty/stereo_hirschmuller_2008/callSGBM_cauchy.sh bin
-
-msmw:
-	mkdir -p bin/build_msmw
-	cd bin/build_msmw; cmake -D CMAKE_BUILD_TYPE=Release ../../3rdparty/msmw; $(MAKE)
-	cp bin/build_msmw/libstereo/iip_stereo_correlation_multi_win2 bin
 
 msmw2:
 	mkdir -p bin/build_msmw2
@@ -103,8 +89,8 @@ sgm_gpu:
 # rules to build the programs under the source directory
 #
 
-SRCIIO   = backflow qauto morsi cldmask remove_small_cc\
-           plambda pview morphoop
+SRCIIO   = morsi cldmask remove_small_cc\
+           plambda morphoop
 PROGRAMS = $(addprefix bin/,$(SRCIIO))
 
 executables: $(PROGRAMS)
@@ -134,7 +120,6 @@ lib/disp_to_h.so: c/disp_to_h.o c/iio.o c/rpc.o
 
 
 
-
 # automatic dependency generation
 -include .deps.mk
 .PHONY:
@@ -143,9 +128,9 @@ depend:
 
 
 # rules for cleaning, nothing interesting below this point
-clean: clean_homography clean_asift clean_sift clean_imscript clean_msmw\
+clean: clean_homography clean_sift clean_imscript \
        clean_msmw2 clean_msmw3 clean_tvl1 clean_sgbm clean_mgm clean_mgm_multi\
-       clean_lsd clean_s2p
+       clean_s2p
 	$(RM) c/*.o bin/* lib/*
 	$(RM) -r s2p_tmp
 
@@ -159,18 +144,15 @@ clean_tvl1:       ; $(MAKE) clean -C 3rdparty/tvl1flow
 clean_sgbm:       ; $(MAKE) clean -C 3rdparty/sgbm
 clean_mgm:        ; $(MAKE) clean -C 3rdparty/mgm
 clean_mgm_multi:  ; $(MAKE) clean -C 3rdparty/mgm_multi
-clean_lsd:        ; $(MAKE) clean -C 3rdparty/lsd
 clean_msmw3:      ; $(MAKE) clean -C 3rdparty/msmw3
 
 # clean targets that use a build dir
-clean_asift:      ; $(RM) -r bin/build_asift
-clean_msmw:       ; $(RM) -r bin/build_msmw
 clean_msmw2:      ; $(RM) -r bin/build_msmw2
 
 
 .PHONY: default all sift sgbm sgbm_opencv msmw tvl1 imscript clean clean_sift\
-	clean_imscript clean_msmw clean_msmw2 clean_tvl1 clean_sgbm clean_mgm\
-	clean_mgm_multi clean_lsd clean_s2p test distclean
+	clean_imscript clean_msmw2 clean_tvl1 clean_sgbm clean_mgm\
+	clean_mgm_multi clean_s2p test distclean
 
 
 # The following conditional statement appends "-std=gnu99" to CFLAGS when the

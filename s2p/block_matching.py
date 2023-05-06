@@ -64,7 +64,7 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         algo: string used to indicate the desired binary. Currently it can be
             one among 'hirschmuller02', 'hirschmuller08',
             'hirschmuller08_laplacian', 'hirschmuller08_cauchy', 'sgbm',
-            'msmw', 'tvl1', 'mgm', 'mgm_multi' and 'micmac'
+            'msmw', 'tvl1', 'mgm', 'mgm_multi' and 'stereosgm_gpu'
         disp_min: smallest disparity to consider
         disp_max: biggest disparity to consider
         timeout: time in seconds after which the disparity command will
@@ -172,7 +172,7 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
                 bm_binary, disp_min, disp_max, im1, im2, disp, mask))
 
 
-    if algo == 'stereosgm':
+    if algo == 'stereosgm_gpu':
         env['MEDIAN'] = '1'
         env['CENSUS_NCC_WIN'] = str(cfg['census_ncc_win'])
         env['TESTLRRL']       = str(cfg['mgm_leftright_control'])
@@ -239,82 +239,6 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         create_rejection_mask(disp, im1, im2, mask)
 
 
-    if algo == 'mgm_multi_lsd':
-        ref = im1
-        sec = im2
-        wref = common.tmpfile('.tif')
-        wsec = common.tmpfile('.tif')
-        # TODO TUNE LSD PARAMETERS TO HANDLE DIRECTLY 12 bits images?
-        # image dependent weights based on lsd segments
-        with rasterio.open(ref, "r") as f:
-            width = f.width
-            height = f.height
-        #TODO refactor this command to not use shell=True
-        common.run('qauto %s | \
-                   lsd  -  - | \
-                   cut -d\' \' -f1,2,3,4   | \
-                   pview segments %d %d | \
-                   plambda -  "255 x - 255 / 2 pow 0.1 fmax" -o %s' % (ref, width, height, wref),
-                   shell=True)
-        # image dependent weights based on lsd segments
-        with rasterio.open(sec, "r") as f:
-            width = f.width
-            height = f.height
-        #TODO refactor this command to not use shell=True
-        common.run('qauto %s | \
-                   lsd  -  - | \
-                   cut -d\' \' -f1,2,3,4   | \
-                   pview segments %d %d | \
-                   plambda -  "255 x - 255 / 2 pow 0.1 fmax" -o %s' % (sec, width, height, wsec),
-                   shell=True)
-
-
-        env['REMOVESMALLCC'] = str(cfg['stereo_speckle_filter'])
-        env['SUBPIX'] = '2'
-        env['MEDIAN'] = '1'
-        env['CENSUS_NCC_WIN'] = str(cfg['census_ncc_win'])
-        env['MINDIFF']        = str(cfg['mgm_mindiff_control'])
-        env['TESTLRRL']       = str(cfg['mgm_leftright_control'])
-        env['TESTLRRL_TAU']   = str(cfg['mgm_leftright_threshold'])
-        # it is required that p2 > p1. The larger p1, p2, the smoother the disparity
-        regularity_multiplier = cfg['stereo_regularity_multiplier']
-
-        nb_dir = cfg['mgm_nb_directions']
-
-        # increasing these numbers compensates the loss of regularity after incorporating LSD weights
-        P1 = 12*regularity_multiplier   # penalizes disparity changes of 1 between neighbor pixels
-        P2 = 48*regularity_multiplier  # penalizes disparity changes of more than 1
-        conf = disp+'.confidence.tif'
-
-        common.run(
-            '{executable} '
-            '-r {disp_min} -R {disp_max} '
-            '-S 6 '
-            '-s vfit '
-            '-t census '
-            '-O {nb_dir} '
-            '-wl {wref} -wr {wsec} '
-            '-P1 {P1} -P2 {P2} '
-            '-confidence_consensusL {conf} '
-            '{im1} {im2} {disp}'.format(
-                executable='mgm_multi',
-                disp_min=disp_min,
-                disp_max=disp_max,
-                nb_dir=nb_dir,
-                wref=wref,
-                wsec=wsec,
-                P1=P1,
-                P2=P2,
-                conf=conf,
-                im1=im1,
-                im2=im2,
-                disp=disp,
-            ),
-            env=env,
-            timeout=timeout,
-        )
-
-        create_rejection_mask(disp, im1, im2, mask)
 
 
     if algo == 'mgm_multi':
@@ -360,28 +284,3 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
 
         create_rejection_mask(disp, im1, im2, mask)
 
-    if (algo == 'micmac'):
-        # add micmac binaries to the PATH environment variable
-        s2p_dir = os.path.dirname(os.path.dirname(os.path.realpath(os.path.abspath(__file__))))
-        micmac_bin = os.path.join(s2p_dir, 'bin', 'micmac', 'bin')
-        os.environ['PATH'] = os.environ['PATH'] + os.pathsep + micmac_bin
-
-        # prepare micmac xml params file
-        micmac_params = os.path.join(s2p_dir, '3rdparty', 'micmac_params.xml')
-        work_dir = os.path.dirname(os.path.abspath(im1))
-        common.run('cp {0} {1}'.format(micmac_params, work_dir))
-
-        # run MICMAC
-        common.run('MICMAC {0:s}'.format(os.path.join(work_dir, 'micmac_params.xml')))
-
-        # copy output disp map
-        micmac_disp = os.path.join(work_dir, 'MEC-EPI',
-                                   'Px1_Num6_DeZoom1_LeChantier.tif')
-        disp = os.path.join(work_dir, 'rectified_disp.tif')
-        common.run('cp {0} {1}'.format(micmac_disp, disp))
-
-        # compute mask by rejecting the 10% of pixels with lowest correlation score
-        micmac_cost = os.path.join(work_dir, 'MEC-EPI',
-                                   'Correl_LeChantier_Num_5.tif')
-        mask = os.path.join(work_dir, 'rectified_mask.png')
-        common.run(["plambda", micmac_cost, "x x%q10 < 0 255 if", "-o", mask])

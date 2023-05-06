@@ -6,6 +6,7 @@
 import os
 import numpy as np
 import rasterio
+from scipy import ndimage
 
 from s2p import common
 from s2p.config import cfg
@@ -25,11 +26,29 @@ def create_rejection_mask(disp, im1, im2, mask):
         im1, im2: rectified stereo pair
         mask: path to the output rejection mask
     """
-    tmp1 = common.tmpfile('.tif')
-    tmp2 = common.tmpfile('.tif')
-    common.run(["plambda", disp, "x 0 join", "-o", tmp1])
-    common.run(["backflow", tmp1, im2, tmp2])
-    common.run(["plambda", disp, im1, tmp2, "x isfinite y isfinite z isfinite and and vmul", "-o", mask])
+#### old plambda version
+#    tmp1 = common.tmpfile('.tif')
+#    tmp2 = common.tmpfile('.tif')
+#    common.run(["plambda", disp, "x 0 join", "-o", tmp1])
+#    common.run(["backflow", tmp1, im2, tmp2])
+#    common.run(["plambda", disp, im1, tmp2, "x isfinite y isfinite z isfinite and and vmul", "-o", mask])
+#### 
+
+    im1 = common.rio_read_as_array_with_nans(im1)
+    im2 = common.rio_read_as_array_with_nans(im2)
+    disp= common.rio_read_as_array_with_nans(disp)
+
+    h, w = disp.shape[:2]
+    disp = np.stack( (np.zeros_like(disp), disp), 2)
+
+    disp[:,:,0] += np.arange(h)[:,np.newaxis]
+    disp[:,:,1] += np.arange(w)
+    m = ndimage.map_coordinates(im2, disp.transpose((2,0,1)) ,order=1, mode='constant', cval=np.nan)
+    #m= cv2.remap(im2, disp, None, cv2.INTER_LINEAR) #, cv2.BORDER_CONSTANT, np.nan)   # cv2 alternative
+    m = ( np.isfinite(im1) * np.isfinite(m) * np.isfinite(disp[:,:,0]) ).astype(np.uint8)
+    common.rasterio_write(mask, m )
+
+
 
 
 def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
@@ -182,6 +201,7 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         )
 
         create_rejection_mask(disp, im1, im2, mask)
+
 
     if algo == 'mgm':
         env['MEDIAN'] = '1'

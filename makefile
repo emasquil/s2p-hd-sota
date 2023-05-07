@@ -9,7 +9,7 @@ IIOLIBS     = -lz -ltiff -lpng -ljpeg -lm
 
 
 # default rule builds only the programs necessary for the test
-default: homography sift mgm_multi tvl1 executables libraries #sgm_gpu
+default: homography sift mgm_multi tvl1 executables libraries sgm_gpu
 	
 	
 

@@ -200,7 +200,7 @@ def disparity_range_check(tile, i):
 
     for n in tile['neighborhood_dirs']:
         nei_dir = os.path.join(tile['dir'], n, 'pair_{}'.format(i))
-        if os.path.exists(nei_dir) and not os.path.samefile(cur_dir, nei_dir):
+        if os.path.exists(nei_dir) and not os.path.samefile(out_dir, nei_dir):
             sift_from_neighborhood = os.path.join(nei_dir, 'sift_matches.txt')
             dmin_dmax_from_neighborhood = os.path.join(nei_dir, 'disp_min_max.txt')
             # TODO continue this

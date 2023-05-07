@@ -159,8 +159,52 @@ def rectification_pair(tile, i):
                fmt='%3.1f')
 
     if cfg['clean_intermediate']:
-        common.remove(os.path.join(out_dir, 'pointing.txt'))
-        common.remove(os.path.join(out_dir, 'sift_matches.txt'))
+        pass
+#        common.remove(os.path.join(out_dir, 'pointing.txt'))
+#        common.remove(os.path.join(out_dir, 'sift_matches.txt'))
+
+
+
+
+def disparity_range_check(tile, i):
+    """
+    Reason about the estimated disparity ranges for all the tiles and update them if needed
+
+    Args:
+        tile: dictionary containing the information needed to process a tile.
+        i: index of the processed pair
+    """
+    out_dir = os.path.join(tile['dir'], 'pair_{}'.format(i))
+    x, y, w, h = tile['coordinates']
+    img1 = cfg['images'][0]['img']
+    rpc1 = cfg['images'][0]['rpcm']
+    img2 = cfg['images'][i]['img']
+    rpc2 = cfg['images'][i]['rpcm']
+    pointing = os.path.join(cfg['out_dir'],
+                            'global_pointing_pair_{}.txt'.format(i))
+
+    disp_min, disp_max =  np.loadtxt (os.path.join(out_dir, 'disp_min_max.txt'))
+
+    try:
+        A = np.loadtxt(os.path.join(out_dir, 'pointing.txt'))
+    except IOError:
+        A = np.loadtxt(pointing)
+    try:
+        m = np.loadtxt(os.path.join(out_dir, 'sift_matches.txt'))
+    except IOError:
+        m = None
+
+    # TODO: reason about the disparity range of the current tile based on the range of neighboring tiles
+    print('checking tile {} {} pair {}...'.format(x, y, i))
+    print(disp_min, disp_max)
+
+    for n in tile['neighborhood_dirs']:
+        nei_dir = os.path.join(tile['dir'], n, 'pair_{}'.format(i))
+        if os.path.exists(nei_dir) and not os.path.samefile(cur_dir, nei_dir):
+            sift_from_neighborhood = os.path.join(nei_dir, 'sift_matches.txt')
+            dmin_dmax_from_neighborhood = os.path.join(nei_dir, 'disp_min_max.txt')
+            # TODO continue this
+
 
 
 def stereo_matching(tile, i):
@@ -201,7 +245,7 @@ def stereo_matching(tile, i):
         if len(cfg['images']) > 2:
             common.remove(rect1)
         common.remove(rect2)
-        common.remove(os.path.join(out_dir, 'disp_min_max.txt'))
+#        common.remove(os.path.join(out_dir, 'disp_min_max.txt'))
 
 
 def disparity_to_height(tile, i):
@@ -317,8 +361,16 @@ def disparity_to_ply(tile):
     # 3D filtering
     r = cfg['3d_filtering_r']
     n = cfg['3d_filtering_n']
+    valid_in = np.sum(np.all(np.isfinite(xyz_array.reshape(-1, 3)), axis=1))
     if r and n:
         triangulation.filter_xyz(xyz_array, r, n, cfg['gsd'])
+
+    # check result
+    valid_out = np.sum(np.all(np.isfinite(xyz_array.reshape(-1, 3)), axis=1))
+    if valid_out < valid_in//10:
+        print("WARNING triangulation.filter_xyz with params ", (r, n, cfg['gsd']), " has conserved only {} out of {}".format(valid_out, valid_in))
+        # TODO: do something to log this issue in a central log not in the distributed one... 
+
 
     proj_com = "CRS {}".format(cfg['out_crs'])
     triangulation.write_to_ply(ply_file, xyz_array, colors, proj_com, confidence=extra)
@@ -465,6 +517,8 @@ def plys_to_dsm(tile):
     points, _ = ply.read_3d_point_cloud_from_ply(in_ply)
 
     if len(points) == 0:
+        # TODO: take note of the missing part of the DSM
+        print('ERROR: plys_to_dsm no points in file: ${in_ply}')
         return
 
     xmin, ymin, *_ = np.min(points, axis=0)
@@ -605,6 +659,14 @@ def main(user_cfg, start_from=0):
         print('3) rectifying tiles...')
         parallel.launch_calls(rectification_pair, tiles_pairs, nb_workers,
                               timeout=timeout)
+
+    # disparity range reasoning step: (WIP) 
+    if start_from <= 4:
+        print('4) reason about the disparity ranges... (WIP)')
+        # extra step checking the disparity range
+        # verity if the disparity range of a tile is not too different from its neighbors
+        for t,i in tiles_pairs:
+            disparity_range_check(t,i)
 
     # matching step:
     if start_from <= 4:

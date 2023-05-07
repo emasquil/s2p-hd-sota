@@ -395,12 +395,16 @@ def matches_on_rpc_roi_cv(im1, im2, rpc1, rpc2, x, y, w, h,
         print (ref_matched_kpts)
         
         # Compute homography using RANSAC
-        H, status = cv.findHomography(sec_matched_kpts, ref_matched_kpts, cv.RANSAC, 5.0)
+        H, mask = cv.findHomography(sec_matched_kpts, ref_matched_kpts, cv.RANSAC, 5.0)
 
+        # filter the good_matchs inconsistent with the homography
+        good_matches = [good_matches[i] for i in np.where(mask.squeeze())[0]]
 
 #        matches = keypoints_match(p1, p2, method, sift_thresh, F,
 #                                  epipolar_threshold=epipolar_threshold,
 #                                  model='fundamental')
+
+
         if len(good_matches) > 10 :
             break
         thresh_dog /= 2.0

@@ -54,6 +54,7 @@ requirements = ['numpy',
                 #'rpcm>=1.4.6',
                 'rpcm @ git+ssh://git@github.com/centreborelli/rpcm',
                 'srtm4>=1.1.2',
+                'opencv-contrib-python',
                 'requests']
 
 extras_require = {

@@ -392,7 +392,9 @@ def matches_on_rpc_roi_cv(im1, im2, rpc1, rpc2, x, y, w, h,
         ref_matched_kpts = np.float32([kp1[m[0].queryIdx].pt for m in good_matches])
         sec_matched_kpts = np.float32([kp2[m[0].trainIdx].pt for m in good_matches])
 
-        print (ref_matched_kpts)
+        if ref_matched_kpts.shape[0] <4:
+            print("WARNING: sift.matches_on_rpc_roi_cv: found no matches.")
+            return None
         
         # Compute homography using RANSAC
         H, mask = cv.findHomography(sec_matched_kpts, ref_matched_kpts, cv.RANSAC, 5.0)
@@ -409,7 +411,7 @@ def matches_on_rpc_roi_cv(im1, im2, rpc1, rpc2, x, y, w, h,
             break
         thresh_dog /= 2.0
     else:
-        print("WARNING: sift.matches_on_rpc_roi: found no matches.")
+        print("WARNING: sift.matches_on_rpc_roi_cv: found no matches.")
         return None
     matchesarray = np.float32( [ (kp1[m[0].queryIdx].pt[0],kp1[m[0].queryIdx].pt[1],  kp2[m[0].trainIdx].pt[0],  kp2[m[0].trainIdx].pt[1])  for m in good_matches])
 

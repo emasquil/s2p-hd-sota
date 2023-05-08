@@ -248,18 +248,35 @@ def crop_array(img, x, y, w, h, fill_value=0):
     return crop
 
 
+
+def maximum_filter_ignore_nan(array, *args, **kwargs):
+    nans = np.isnan(array)
+    replaced = np.where(nans, -np.inf, array)
+    replaced = ndimage.maximum_filter(replaced, *args, **kwargs)
+    return np.where(np.isinf(replaced), np.nan, replaced)
+
+def minimum_filter_ignore_nan(array, *args, **kwargs):
+    nans = np.isnan(array)
+    replaced = np.where(nans, +np.inf, array)
+    replaced = ndimage.minimum_filter(replaced, *args, **kwargs)
+    return np.where(np.isinf(replaced), np.nan, replaced)
+
 def cargarse_basura(inputf, outputf):
     se=5
-    tmp1 = outputf + '1.tif'
-    tmp2 = outputf + '2.tif'
-    tmpM = outputf + 'M.tif'
-    run('morphoop %s min %d %s' % (inputf, se, tmpM))
-    run('morphoop %s max %d %s' % (tmpM  , se, tmp1))
-    run('morphoop %s max %d %s' % (inputf, se, tmpM))
-    run('morphoop %s min %d %s' % (tmpM  , se, tmp2))
-    run(["plambda", tmp1, tmp2, inputf, "x y - fabs %d > nan z if" % 5, "-o", tmpM])
-    run('remove_small_cc %s %s %d %d' % (tmpM, outputf, 200, 5))
-    run('rm -f %s %s %s' % (tmp1, tmp2, tmpM))
+    im = rio_read_as_array_with_nans(inputf)
+
+    tmp1 = minimum_filter_ignore_nan(im,   size=se)
+    tmp1 = maximum_filter_ignore_nan(tmp1, size=se)
+
+    tmp2 = maximum_filter_ignore_nan(im,   size=se)
+    tmp2 = minimum_filter_ignore_nan(tmp2, size=se)
+
+    # put to nan if dilation minus erosion is larger than 5
+    tmpM = np.where( np.abs(tmp1 - tmp2) > 5, np.nan, im)
+
+    # remove small connected components
+    rasterio_write(outputf, tmpM)
+    run('remove_small_cc %s %s %d %d' % (outputf, outputf, 200, 5))
 
 
 def print_elapsed_time(since_first_call=False):

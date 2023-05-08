@@ -89,8 +89,8 @@ sgm_gpu:
 # rules to build the programs under the source directory
 #
 
-SRCIIO   = morsi cldmask remove_small_cc\
-           plambda morphoop
+SRCIIO   = morsi cldmask remove_small_cc
+           
 PROGRAMS = $(addprefix bin/,$(SRCIIO))
 
 executables: $(PROGRAMS)

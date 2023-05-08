@@ -17,6 +17,7 @@ import rasterio
 
 from s2p.config import cfg
 
+from s2p.specklefilter import specklefilter
 
 # silent rasterio NotGeoreferencedWarning
 warnings.filterwarnings("ignore",
@@ -275,8 +276,10 @@ def cargarse_basura(inputf, outputf):
     tmpM = np.where( np.abs(tmp1 - tmp2) > 5, np.nan, im)
 
     # remove small connected components
+    #rasterio_write(outputf, tmpM)
+    #run('remove_small_cc %s %s %d %d' % (outputf, outputf, 200, 5))
+    tmpM = specklefilter(tmpM,200,5)
     rasterio_write(outputf, tmpM)
-    run('remove_small_cc %s %s %d %d' % (outputf, outputf, 200, 5))
 
 
 def print_elapsed_time(since_first_call=False):

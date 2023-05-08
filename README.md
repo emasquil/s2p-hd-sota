@@ -62,20 +62,11 @@ in the s2p makefiles if compiling it from source.
 Alternatively, if you want to get the latest commit or want to edit the
 sources, install it in editable mode from a git clone:
 
-    git clone https://github.com/centreborelli/s2p.git --recursive
+    git clone https://github.com/centreborelli/s2p.git 
     cd s2p
     pip install -e ".[test]"
 
-The `--recursive` option for `git clone` allows to clone all git submodules, such
-as the [iio](https://github.com/mnhrdt/iio) library.
-
-If the `--recursive` option wasn't used when cloning, the submodules can now be
-retrieved with
-
-    git submodule update --init
-
-All `s2p` python submodules are located in the `s2p` package. Some python
-functions of these modules rely on external binaries. Most of these binaries
+Some python rely on external binaries. Most of these binaries
 were written on purpose for the needs of the pipeline, and their source code is
 provided here in the `c` folder. For the other binaries, the source code is
 provided in the `3rdparty` folder.

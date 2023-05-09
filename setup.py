@@ -44,6 +44,9 @@ except ImportError:
 
 requirements = ['numpy',
                 'scipy',
+                'fire',
+                'iio',
+                'numba',
                 'rasterio[s3]>=1.2a1',
                 'utm',
                 'pyproj>=3.0.0',

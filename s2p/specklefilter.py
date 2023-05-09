@@ -37,7 +37,7 @@ def specklefilter(off, area=25, th=0):
             return i
         else:
             ret = find(idx.flat[i],idx)
-            #idx.flat[i] = ret    // path compression is useles with idx passed by value
+            idx.flat[i] = ret    # path compression is useles with idx passed by value
             return ret
 
     @jit(nopython=True)

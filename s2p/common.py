@@ -13,6 +13,7 @@ import tempfile
 import subprocess
 import numpy as np
 import rasterio
+from scipy import ndimage
 
 
 from s2p.config import cfg

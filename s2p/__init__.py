@@ -24,6 +24,7 @@ import os.path
 import json
 import datetime
 import multiprocessing
+multiprocessing.set_start_method('fork')  # needed after python3.8 for multi-platform consistency
 
 import numpy as np
 import rasterio
@@ -618,7 +619,6 @@ def main(user_cfg, start_from=0):
     initialization.make_dirs()
 
     # multiprocessing setup
-    multiprocessing.set_start_method('fork')  # needed after python3.8 for multi-platform consistency
     nb_workers = multiprocessing.cpu_count()  # nb of available cores
     if cfg['max_processes'] is not None:
         nb_workers = cfg['max_processes']

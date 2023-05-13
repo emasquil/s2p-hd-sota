@@ -8,9 +8,17 @@ export CXXFLAGS
 IIOLIBS     = -lz -ltiff -lpng -ljpeg -lm
 
 
-# default rule builds only the programs necessary for the test
+# test for cuda
+NVCC_RESULT := $(shell which nvcc 2> NULL)
+NVCC_TEST := $(notdir $(NVCC_RESULT))
+
+
+# default rule builds only the programs necessary for the test skip sgm_gpu is cuda is not presetn
+ifeq ($(NVCC_TEST),nvcc)
+default: homography sift mgm_multi tvl1 executables libraries sgm_gpu
+else
 default: homography sift mgm_multi tvl1 executables libraries #sgm_gpu
-	
+endif
 	
 
 # the "all" rule builds three further correlators

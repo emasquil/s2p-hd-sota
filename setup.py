@@ -44,8 +44,6 @@ except ImportError:
 
 requirements = ['numpy',
                 'scipy',
-                'fire',
-                'iio',
                 'numba',
                 'rasterio[s3]>=1.2a1',
                 'utm',
@@ -57,9 +55,10 @@ requirements = ['numpy',
                 #'rpcm>=1.4.6',
                 'rpcm @ git+https://github.com/centreborelli/rpcm',
                 'srtm4>=1.1.2',
-                'opencv-contrib-python',
+                'opencv-python-headless',
                 'requests',
-                'cffi']
+                'cffi',
+                'geojson']
 
 extras_require = {
     "test": ["pytest", "pytest-cov", "psutil"],

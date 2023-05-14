@@ -323,7 +323,7 @@ def disparity_to_ply(cfg, tile: Tile) -> None:
     # first check if disp exists for this tile
     if os.path.exists(disp) is False:
         #TODO: take note of the missing tile and move to the next
-        print('ERROR: disparity_to_ply missing input file: ${disp}')
+        print(f'ERROR: disparity_to_ply missing input file: {disp}')
         return
 
     # prepare the image needed to colorize point cloud

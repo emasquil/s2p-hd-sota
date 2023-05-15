@@ -63,8 +63,10 @@ public:
 		m_census_right.enqueue(
 			src_right, width, height, src_pitch, stream);
         std::chrono::steady_clock::time_point end_census_transform_right = std::chrono::steady_clock::now();
-        std::cout << "\t\tTime spent census transf left = " << std::chrono::duration_cast<std::chrono::microseconds>(end_census_transform_left - begin_census_transform_proc).count() << "[us]" << std::endl;
-        std::cout << "\t\tTime spent census transf right = " << std::chrono::duration_cast<std::chrono::microseconds>(end_census_transform_right - begin_census_transform_right).count() << "[us]" << std::endl;
+	if (param.verbose)
+		std::cout << "\t\tTime spent census transf left = " << std::chrono::duration_cast<std::chrono::microseconds>(end_census_transform_left - begin_census_transform_proc).count() << "[us]" << std::endl;
+	if (param.verbose)
+		std::cout << "\t\tTime spent census transf right = " << std::chrono::duration_cast<std::chrono::microseconds>(end_census_transform_right - begin_census_transform_right).count() << "[us]" << std::endl;
 
         std::chrono::steady_clock::time_point begin_m_path_aggregation = std::chrono::steady_clock::now();
         m_path_aggregation.enqueue(
@@ -74,7 +76,8 @@ public:
 			param.path_type, param.P1, param.P2, param.min_disp,
 			stream);
         std::chrono::steady_clock::time_point end_m_path_aggregation = std::chrono::steady_clock::now();
-        std::cout << "\t\tTime spent path aggregation = " << std::chrono::duration_cast<std::chrono::microseconds>(end_m_path_aggregation - begin_m_path_aggregation).count() << "[us]" << std::endl;
+	if (param.verbose)
+		std::cout << "\t\tTime spent path aggregation = " << std::chrono::duration_cast<std::chrono::microseconds>(end_m_path_aggregation - begin_m_path_aggregation).count() << "[us]" << std::endl;
 
         std::chrono::steady_clock::time_point begin_m_winner_takes_all = std::chrono::steady_clock::now();
         m_winner_takes_all.enqueue(
@@ -84,7 +87,8 @@ public:
 			param.uniqueness, param.subpixel, param.path_type,
 			stream);
         std::chrono::steady_clock::time_point end_m_winner_takes_all = std::chrono::steady_clock::now();
-        std::cout << "\t\tTime spent winner takes all = " << std::chrono::duration_cast<std::chrono::microseconds>(end_m_winner_takes_all - begin_m_winner_takes_all).count() << "[us]" << std::endl;
+	if (param.verbose)
+		std::cout << "\t\tTime spent winner takes all = " << std::chrono::duration_cast<std::chrono::microseconds>(end_m_winner_takes_all - begin_m_winner_takes_all).count() << "[us]" << std::endl;
 
     }
 

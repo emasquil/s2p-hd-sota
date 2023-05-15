@@ -174,51 +174,11 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
     if algo == 'stereosgm_gpu':
         nb_dir = cfg['mgm_nb_directions']
 
-        import cffi
-        here = os.path.dirname(os.path.abspath(__file__))
-        lib_folder = os.path.join(os.path.dirname(here), 'lib')
-        ffi = cffi.FFI()
-        ffi.cdef(open(os.path.join(lib_folder, 'libsgmgpu.h')).read())
-        from typing import Any
-        sgmgpu: Any = ffi.dlopen(os.path.join(lib_folder, 'libstereosgm.so'))
-
-        h = sgmgpu.make_sgm_gpu(
-            # disp_size
-            256,
-            # P1
-            10,
-            # P2
-            120,
-            # uniqueness
-            0.95,
-            # num_paths
-            nb_dir,
-            # min_disp
-            disp_min,
-            # LR_max_diff
-            1,
-            # subpixel
-            True
-        )
-        print(h)
-        def P(array):
-            if array.dtype == np.float32:
-                typestr = 'float*'
-            elif array.dtype == bool:
-                typestr = 'bool*'
-            elif array.dtype == np.int32:
-                typestr = 'int*'
-            elif array.dtype == np.uint16:
-                typestr = 'uint16_t*'
-            else:
-                assert False
-            return ffi.from_buffer(typestr, array, require_writable=True)
-        i1 = common.rio_read_as_array_with_nans(im1).astype(np.uint16)
-        i2 = common.rio_read_as_array_with_nans(im2).astype(np.uint16)
-        result = np.zeros_like(i1, dtype=np.float32)
-        sgmgpu.exec_sgm_gpu(h, i1.shape[0], i1.shape[1], P(i1), P(i2), P(result))
+        from s2p import stereosgm_gpu
+        i1 = common.rio_read_as_array_with_nans(im1)
+        i2 = common.rio_read_as_array_with_nans(im2)
+        result = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=disp_min)
         common.rasterio_write(disp, result)
-        sgmgpu.free_sgm_gpu(h)
 
         create_rejection_mask(disp, im1, im2, mask)
 

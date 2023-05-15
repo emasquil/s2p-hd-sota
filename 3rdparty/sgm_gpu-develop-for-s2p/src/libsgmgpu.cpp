@@ -29,7 +29,7 @@ struct sgm_handle {
 
 sgm_handle *make_sgm_gpu(int disp_size, int P1, int P2, float uniqueness,
                          int num_paths, int min_disp, int LR_max_diff,
-                         bool subpixel) {
+                         bool subpixel, bool verbose) {
   ASSERT_MSG(disp_size == 64 || disp_size == 128 || disp_size == 256,
              "disparity size must be 64, 128 or 256.");
   ASSERT_MSG(num_paths == 4 || num_paths == 8,
@@ -38,8 +38,8 @@ sgm_handle *make_sgm_gpu(int disp_size, int P1, int P2, float uniqueness,
   const sgm::PathType path_type =
       num_paths == 8 ? sgm::PathType::SCAN_8PATH : sgm::PathType::SCAN_4PATH;
 
-  const sgm::StereoSGM::Parameters params(P1, P2, uniqueness, subpixel,
-                                          path_type, min_disp, LR_max_diff);
+  const sgm::StereoSGM::Parameters params(
+      P1, P2, uniqueness, subpixel, path_type, min_disp, LR_max_diff, verbose);
 
   return new sgm_handle(params, disp_size);
 }
@@ -51,32 +51,36 @@ extern "C" void exec_sgm_gpu(sgm_handle *handle, int h, int w,
   const int input_depth = 16;
   const int output_depth = 16;
 
-  std::cout << "sgm initialization begin:" << std::endl;
+  if (params.verbose)
+    std::cout << "sgm initialization begin:" << std::endl;
   std::chrono::steady_clock::time_point begin_sgm_ini =
       std::chrono::steady_clock::now();
   sgm::StereoSGM ssgm(w, h, handle->disp_size, input_depth, output_depth,
                       sgm::EXECUTE_INOUT_HOST2HOST, params);
   std::chrono::steady_clock::time_point end_sgm_ini =
       std::chrono::steady_clock::now();
-  std::cout << "\tsgm all initialization time = "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   end_sgm_ini - begin_sgm_ini)
-                   .count()
-            << "[ms]" << std::endl;
+  if (params.verbose)
+    std::cout << "\tsgm all initialization time = "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(
+                     end_sgm_ini - begin_sgm_ini)
+                     .count()
+              << "[ms]" << std::endl;
 
   cv::Mat disparity(h, w, CV_16S);
 
-  std::cout << "sgm processing begin:" << std::endl;
+  if (params.verbose)
+    std::cout << "sgm processing begin:" << std::endl;
   std::chrono::steady_clock::time_point begin_sgm_proc =
       std::chrono::steady_clock::now();
   ssgm.execute(left_data, right_data, disparity.data);
   std::chrono::steady_clock::time_point end_sgm_proc =
       std::chrono::steady_clock::now();
-  std::cout << "\tsgm processing time = "
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   end_sgm_proc - begin_sgm_proc)
-                   .count()
-            << "[ms]" << std::endl;
+  if (params.verbose)
+    std::cout << "\tsgm processing time = "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(
+                     end_sgm_proc - begin_sgm_proc)
+                     .count()
+              << "[ms]" << std::endl;
 
   // create mask for invalid disp
   cv::Mat mask = disparity == ssgm.get_invalid_disparity();

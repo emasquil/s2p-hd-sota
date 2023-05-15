@@ -84,6 +84,7 @@ namespace sgm {
 			PathType path_type;
 			int min_disp;
 			int LR_max_diff;
+			bool verbose;
 
 			/**
 			* @param P1 Penalty on the disparity change by plus or minus 1 between nieghbor pixels.
@@ -94,7 +95,7 @@ namespace sgm {
 			* @param min_disp Minimum possible disparity value.
 			* @param LR_max_diff Acceptable difference pixels which is used in LR check consistency. LR check consistency will be disabled if this value is set to negative.
 			*/
-			Parameters(int P1 = 10, int P2 = 120, float uniqueness = 0.95f, bool subpixel = false, PathType path_type = PathType::SCAN_8PATH, int min_disp = 0, int LR_max_diff = 1)
+			Parameters(int P1 = 10, int P2 = 120, float uniqueness = 0.95f, bool subpixel = false, PathType path_type = PathType::SCAN_8PATH, int min_disp = 0, int LR_max_diff = 1, bool verbose = false)
 				: P1(P1)
 				, P2(P2)
 				, uniqueness(uniqueness)
@@ -102,6 +103,7 @@ namespace sgm {
 				, path_type(path_type)
 				, min_disp(min_disp)
 				, LR_max_diff(LR_max_diff)
+				, verbose(verbose)
 			{ }
 		};
 
@@ -115,7 +117,7 @@ namespace sgm {
 		* @attention
 		* output_depth_bits must be set to 16 when subpixel is enabled.
 		*/
-		LIBSGM_API StereoSGM(int width, int height, int disparity_size, int input_depth_bits, int output_depth_bits, 
+		LIBSGM_API StereoSGM(int width, int height, int disparity_size, int input_depth_bits, int output_depth_bits,
 			EXECUTE_INOUT inout_type, const Parameters& param = Parameters());
 
 		/**

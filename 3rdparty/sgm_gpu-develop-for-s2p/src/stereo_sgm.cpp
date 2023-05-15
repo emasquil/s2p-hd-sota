@@ -30,7 +30,7 @@ namespace sgm {
 	class SemiGlobalMatchingBase {
 	public:
 		using output_type = sgm::output_type;
-		virtual void execute(output_type* dst_L, output_type* dst_R, const void* src_L, const void* src_R, 
+		virtual void execute(output_type* dst_L, output_type* dst_R, const void* src_L, const void* src_R,
 			int w, int h, int sp, int dp, StereoSGM::Parameters& param) = 0;
 
 		virtual ~SemiGlobalMatchingBase() {}
@@ -58,7 +58,7 @@ namespace sgm {
 
 		SemiGlobalMatchingBase* sgm_engine;
 
-		CudaStereoSGMResources(int width_, int height_, int disparity_size_, int input_depth_bits_, int output_depth_bits_, int src_pitch_, int dst_pitch_, EXECUTE_INOUT inout_type_) {
+		CudaStereoSGMResources(int width_, int height_, int disparity_size_, int input_depth_bits_, int output_depth_bits_, int src_pitch_, int dst_pitch_, EXECUTE_INOUT inout_type_, bool verbose) {
 
 
             std::chrono::steady_clock::time_point begin_sgm_engine = std::chrono::steady_clock::now();
@@ -80,7 +80,8 @@ namespace sgm {
 				throw std::logic_error("depth bits must be 8 or 16, and disparity size must be 64 or 128");
 
             std::chrono::steady_clock::time_point end_sgm_engine = std::chrono::steady_clock::now();
-            std::cout << "\tsgm engine initialization time = " << std::chrono::duration_cast<std::chrono::milliseconds>(end_sgm_engine - begin_sgm_engine).count() << "[ms]" << std::endl;
+            if (verbose)
+                std::cout << "\tsgm engine initialization time = " << std::chrono::duration_cast<std::chrono::milliseconds>(end_sgm_engine - begin_sgm_engine).count() << "[ms]" << std::endl;
 
             std::chrono::steady_clock::time_point begin_alloc_cuda = std::chrono::steady_clock::now();
 
@@ -88,7 +89,7 @@ namespace sgm {
 				this->d_src_left.allocate(input_depth_bits_ / 8 * src_pitch_ * height_);
 				this->d_src_right.allocate(input_depth_bits_ / 8 * src_pitch_ * height_);
 			}
-			
+
 			this->d_left_disp.allocate(dst_pitch_ * height_);
 			this->d_right_disp.allocate(dst_pitch_ * height_);
 
@@ -101,7 +102,8 @@ namespace sgm {
 			this->d_tmp_right_disp.fillZero();
 
             std::chrono::steady_clock::time_point end_alloc_cuda = std::chrono::steady_clock::now();
-            std::cout << "\tsgm allocation cuda mem time = " << std::chrono::duration_cast<std::chrono::milliseconds>(end_alloc_cuda - begin_alloc_cuda).count() << "[ms]" << std::endl;
+            if (verbose)
+                std::cout << "\tsgm allocation cuda mem time = " << std::chrono::duration_cast<std::chrono::milliseconds>(end_alloc_cuda - begin_alloc_cuda).count() << "[ms]" << std::endl;
 
         }
 
@@ -171,7 +173,7 @@ namespace sgm {
 			throw std::logic_error("Path type must be PathType::SCAN_4PATH or PathType::SCAN_8PATH");
 		}
 
-		cu_res_ = new CudaStereoSGMResources(width_, height_, disparity_size_, input_depth_bits_, output_depth_bits_, src_pitch, dst_pitch, inout_type_);
+		cu_res_ = new CudaStereoSGMResources(width_, height_, disparity_size_, input_depth_bits_, output_depth_bits_, src_pitch, dst_pitch, inout_type_, param_.verbose);
 
     }
 
@@ -179,7 +181,7 @@ namespace sgm {
 		if (cu_res_) { delete cu_res_; }
 	}
 
-	
+
 	void StereoSGM::execute(const void* left_pixels, const void* right_pixels, void* dst) {
 
 		const void *d_input_left, *d_input_right;
@@ -213,28 +215,33 @@ namespace sgm {
          * */
 
 
-        std::cout << "\tsgm execute:" << std::endl;
+        if (param_.verbose)
+            std::cout << "\tsgm execute:" << std::endl;
         std::chrono::steady_clock::time_point begin_sgm_proc = std::chrono::steady_clock::now();
 		cu_res_->sgm_engine->execute((uint16_t*)d_tmp_left_disp, (uint16_t*)d_tmp_right_disp,
 			d_input_left, d_input_right, width_, height_, src_pitch_, dst_pitch_, param_);
         std::chrono::steady_clock::time_point end_sgm_proc = std::chrono::steady_clock::now();
-        std::cout << "\t\tsgm execute time = " << std::chrono::duration_cast<std::chrono::milliseconds>(end_sgm_proc - begin_sgm_proc).count() << "[ms]" << std::endl;
+        if (param_.verbose)
+            std::cout << "\t\tsgm execute time = " << std::chrono::duration_cast<std::chrono::milliseconds>(end_sgm_proc - begin_sgm_proc).count() << "[ms]" << std::endl;
 
         std::chrono::steady_clock::time_point begin_median_filter = std::chrono::steady_clock::now();
         sgm::details::median_filter((uint16_t*)d_tmp_left_disp, (uint16_t*)d_left_disp, width_, height_, dst_pitch_);
 		sgm::details::median_filter((uint16_t*)d_tmp_right_disp, (uint16_t*)d_right_disp, width_, height_, dst_pitch_);
         std::chrono::steady_clock::time_point end_median_filter = std::chrono::steady_clock::now();
-        std::cout << "\tsgm median_filter time = " << std::chrono::duration_cast<std::chrono::microseconds>(end_median_filter - begin_median_filter).count() << "[us]" << std::endl;
+        if (param_.verbose)
+            std::cout << "\tsgm median_filter time = " << std::chrono::duration_cast<std::chrono::microseconds>(end_median_filter - begin_median_filter).count() << "[us]" << std::endl;
 
         std::chrono::steady_clock::time_point begin_check_consistency = std::chrono::steady_clock::now();
         sgm::details::check_consistency((uint16_t*)d_left_disp, (uint16_t*)d_right_disp, d_input_left, width_, height_, input_depth_bits_, src_pitch_, dst_pitch_, param_.subpixel, param_.LR_max_diff);
         std::chrono::steady_clock::time_point end_check_consistency = std::chrono::steady_clock::now();
-        std::cout << "\tsgm check_consistency time = " << std::chrono::duration_cast<std::chrono::microseconds>(end_check_consistency - begin_check_consistency).count() << "[us]" << std::endl;
+        if (param_.verbose)
+            std::cout << "\tsgm check_consistency time = " << std::chrono::duration_cast<std::chrono::microseconds>(end_check_consistency - begin_check_consistency).count() << "[us]" << std::endl;
 
         std::chrono::steady_clock::time_point begin_correct_disparity_range = std::chrono::steady_clock::now();
         sgm::details::correct_disparity_range((uint16_t*)d_left_disp, width_, height_, dst_pitch_, param_.subpixel, param_.min_disp);
         std::chrono::steady_clock::time_point end_correct_disparity_range = std::chrono::steady_clock::now();
-        std::cout << "\tsgm correct_disparity_range time = " << std::chrono::duration_cast<std::chrono::microseconds>(end_correct_disparity_range - begin_correct_disparity_range).count() << "[us]" << std::endl;
+        if (param_.verbose)
+            std::cout << "\tsgm correct_disparity_range time = " << std::chrono::duration_cast<std::chrono::microseconds>(end_correct_disparity_range - begin_correct_disparity_range).count() << "[us]" << std::endl;
 
         if (!is_cuda_output(inout_type_) && output_depth_bits_ == 8) {
 			sgm::details::cast_16bit_8bit_array((const uint16_t*)d_left_disp, (uint8_t*)d_tmp_left_disp, dst_pitch_ * height_);

@@ -9,7 +9,7 @@ IIOLIBS     = -lz -ltiff -lpng -ljpeg -lm
 
 
 # test for cuda
-NVCC_RESULT := $(shell which nvcc 2> NULL)
+NVCC_RESULT := $(shell which nvcc 2>/dev/null)
 NVCC_TEST := $(notdir $(NVCC_RESULT))
 
 
@@ -19,7 +19,7 @@ default: homography sift mgm_multi tvl1 executables libraries sgm_gpu
 else
 default: homography sift mgm_multi tvl1 executables libraries #sgm_gpu
 endif
-	
+
 
 # the "all" rule builds three further correlators
 all: default msmw3 sgbm
@@ -99,7 +99,7 @@ sgm_gpu:
 #
 
 SRCIIO   = morsi cldmask remove_small_cc
-           
+
 PROGRAMS = $(addprefix bin/,$(SRCIIO))
 
 executables: $(PROGRAMS)

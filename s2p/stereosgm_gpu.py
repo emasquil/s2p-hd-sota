@@ -61,7 +61,7 @@ def run(
     im2 = im2.astype(np.uint16)
     result = np.zeros_like(im1, dtype=np.float32)
     sgmgpu.exec_sgm_gpu(
-        h, im1.shape[0], im1.shape[1], wrap(im1), wrap(im1), wrap(result)
+        h, im1.shape[0], im1.shape[1], wrap(im1), wrap(im2), wrap(result)
     )
     sgmgpu.free_sgm_gpu(h)
 

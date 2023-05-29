@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (C) 2015, Gabriele Facciolo <facciolo@cmla.ens-cachan.fr>
 
@@ -25,7 +25,7 @@ import subprocess
 
 
 import s2p
-from s2p.config import cfg
+from s2p import config
 from s2p import common
 from s2p import initialization
 
@@ -43,10 +43,13 @@ def write_svg_tilemap(filename, cfg, tiles):
                width="1000px" height="1000px" viewBox="%d %d %d %d">'%(
            cfg['roi']['x'], cfg['roi']['y'], cfg['roi']['w'], cfg['roi']['h']))
         for t in tiles:
-            x, y ,w ,h = t['coordinates']
-            dir = os.path.abspath(t['dir']).split(os.path.abspath(cfg['out_dir']))[-1]
+            x, y ,w ,h = t.coordinates
+            dir = os.path.abspath(t.dir).split(os.path.abspath(cfg['out_dir']))[-1]
             try:
-               common.image_qauto("%s/dsm.tif"%t['dir'], "%s/dsm.tif.png"%t['dir'])
+               pass
+               dsmi = common.rio_read_as_array_with_nans("%s/dsm.tif"%t.dir)
+               common.rasterio_write("%s/dsm.tif.png"%t.dir, common.linear_stretching_and_quantization_8bit(dsmi))
+               #common.image_qauto("%s/dsm.tif"%t.dir, "%s/dsm.tif.png"%t.dir)
             except subprocess.CalledProcessError:
                pass
 
@@ -60,7 +63,7 @@ def write_svg_tilemap(filename, cfg, tiles):
             f.write('<a xlink:href="./%s/" target="_blank">'%dir)
             f.write('<g transform="translate(%d,%d)">\
                   <text x="%d" y="%d"  text-anchor="middle" \
-                  style="fill: #00FF00; stroke: #00FF00; stroke-width: 0.5; font-size: 12px;" \
+                  style="fill: #00FF00; stroke: #00FF00; stroke-width: 0.5; font-size: 15px;" \
                   alignment-baseline="central">%s</text></g>'%(
                      x,y,w/2,h/2,dir))
             f.write('</a>')
@@ -77,11 +80,12 @@ def main(user_cfg):
         user_cfg: user config dictionary
     """
     common.print_elapsed_time.t0 = datetime.datetime.now()
-    initialization.build_cfg(user_cfg)
+    cfg = config.get_default_config()
+    initialization.build_cfg(cfg, user_cfg)
 
-    tw, th = initialization.adjust_tile_size()
+    tw, th = initialization.adjust_tile_size(cfg)
     tiles_txt = os.path.join(cfg['out_dir'],'tiles.txt')
-    tiles = initialization.tiles_full_info(tw, th, tiles_txt)
+    tiles = initialization.tiles_full_info(cfg, tw, th, tiles_txt)
 
     # generate svg tile map
     write_svg_tilemap(os.path.join(cfg['out_dir'],'tiles.svg'), cfg, tiles)
@@ -90,7 +94,7 @@ def main(user_cfg):
 
 
     # cleanup
-    common.garbage_cleanup()
+    #common.garbage_cleanup()
 
 
 if __name__ == '__main__':

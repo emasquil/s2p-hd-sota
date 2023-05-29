@@ -318,12 +318,13 @@ def image_keypoints_cv(im, x, y, w, h, max_nb=None, thresh_dog=0.0133, nb_octave
         h = min(h, ds.height - y)
         in_buffer = ds.read(window=rio.windows.Window(x, y, w, h))
 
-#    im_adjusted =  cv.normalize(in_buffer[0] - cv.GaussianBlur(in_buffer[0], [11,11],5), cv.NORM_MINMAX, 0, 255).converTo(cv.CV_8U)
 
     from s2p import common
+#    im_adjusted = common.linear_stretching_and_quantization_8bit ( in_buffer[0].astype(float) - cv.GaussianBlur( in_buffer[0].astype(float), (11,11), 0 ) , 0.1)
     im_adjusted = common.linear_stretching_and_quantization_8bit (in_buffer[0], 0.1)
 
-    #common.rasterio_write('tt.tif', im_adjusted )
+##   debug
+#    common.rasterio_write('/tmp/sift.tif', im_adjusted )
 
     # Detect keypoints on first band
     SIFT = cv.SIFT_create()
@@ -385,7 +386,7 @@ def matches_on_rpc_roi_cv(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
         # Apply ratio test manually
         good_matches = []
         for m,n in matches:
-            if m.distance < 0.75*n.distance:
+            if m.distance < 0.8*n.distance:
                 good_matches.append([m])
         #good_matches = matches
 

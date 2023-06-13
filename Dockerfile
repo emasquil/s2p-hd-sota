@@ -1,34 +1,28 @@
-FROM ubuntu:20.04
-
-LABEL maintainer="Carlo de Franchis <carlodef@gmail.com>"
-
-# https://goo.gl/aypXVx
+#FROM ubuntu:jammy
+FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
+#FROM nvidia/cuda:11.4.3-devel-ubuntu20.04
+WORKDIR /home/
 ARG DEBIAN_FRONTEND=noninteractive
-# https://github.com/mapbox/rasterio#ssl-certs
-ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+RUN apt-get update && apt install -y vim cmake libopencv-dev build-essential gdb libfftw3-dev libgeotiff-dev libtiff5-dev git libgdal-dev python3-pip gdal-bin 
+RUN pip3 install cython 
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    cmake \
-    libfftw3-dev \
-    libgdal-dev \
-    libgeotiff-dev \
-    libtiff5-dev \
-    python3-dev \
-    python3-pip && \
-    rm -fr /var/lib/apt/lists/*
+# should be #2
+RUN pip3 install opencv-contrib-python scipy 
+RUN pip3 install numba
 
-# Copy files needed to install s2p
-WORKDIR /root
-COPY LICENSE.txt MANIFEST.in README.md setup.py makefile s2p/
-WORKDIR /root/s2p
-COPY 3rdparty/ 3rdparty/
-COPY c/ c/
-COPY s2p/ s2p/
-COPY bin/ bin/
-COPY lib/ lib/
+# just for debug
+RUN pip3 install iio fire
 
-# Install s2p
-RUN pip install --no-cache-dir -e .
+# LEGACY S2P for reference should be #3
+RUN git clone https://github.com/centreborelli/s2p.git --recursive && cd s2p && pip3 install -e ".[test]"
 
+RUN pip3 install cffi opencv_python_headless  git+https://github.com/centreborelli/rpcm
+
+COPY s2p-hd  /home/s2p-hd/
+
+#RUN apt-get update &&  apt install -y parallel
+
+RUN useradd -u 1000 user
+RUN chown -R 1000:1000 /home/
+
+USER user

@@ -16,6 +16,7 @@ from s2p import rpc_utils
 from s2p import estimation
 
 import cv2 as cv
+cv.setNumThreads(1)
 
 # Locate sift4ctypes library and raise an ImportError if it can not be
 # found This call will raise an exception if library can not be found,

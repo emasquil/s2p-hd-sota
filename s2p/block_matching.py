@@ -177,7 +177,7 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         from s2p import stereosgm_gpu
         i1 = common.rio_read_as_array_with_nans(im1)
         i2 = common.rio_read_as_array_with_nans(im2)
-        result = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=disp_min)
+        result = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=-disp_max)
         common.rasterio_write(disp, result)
 
         create_rejection_mask(disp, im1, im2, mask)

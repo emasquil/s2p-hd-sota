@@ -177,7 +177,28 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         from s2p import stereosgm_gpu
         i1 = common.rio_read_as_array_with_nans(im1)
         i2 = common.rio_read_as_array_with_nans(im2)
-        result = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=-disp_max)
+
+
+        # 2 scale disparity range estimation
+        #  this doesnt really work perfectly 
+        print (disp_min, disp_max)
+        i1o = ndimage.zoom(np.nan_to_num(i1), .5, mode='reflect')
+        i2o = ndimage.zoom(np.nan_to_num(i2), .5, mode='reflect')
+        dispmino = (disp_min + disp_max)//2 - 128 
+        print (dispmino)
+        resulto = stereosgm_gpu.run(i1o, i2o, nb_dir=nb_dir, disp_min=dispmino)
+        # debug
+        # common.rasterio_write(disp+'o.tif', resulto)
+        disp_min, disp_max = np.nanquantile(resulto[20:-20,20:-20], [0.001, 0.999])
+
+        print (disp_min, disp_max)
+       
+
+        result = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_max*2))
+        result[0:2,:] = np.nan
+        result[-3:-1,:] = np.nan
+        result[:,0:2] = np.nan
+        result[:,-1:-3] = np.nan
         common.rasterio_write(disp, result)
 
         create_rejection_mask(disp, im1, im2, mask)

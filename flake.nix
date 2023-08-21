@@ -120,7 +120,7 @@
             name = "sgm_gpu";
             version = "1.0.0";
             src = pkgs.lib.cleanSource ./3rdparty/sgm_gpu-develop-for-s2p;
-            nativeBuildInputs = with pkgs; [cudatoolkit cmake opencv3];
+            nativeBuildInputs = with pkgs; [cudaPackages_11_4.cudatoolkit cmake opencv3];
           };
           s2p-cuda = s2p.overrideAttrs (oldAttrs: {
             name = "s2p-hd-cuda";

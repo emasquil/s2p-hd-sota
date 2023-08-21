@@ -43,18 +43,18 @@ sift:
 	cp 3rdparty/sift/simd/libsift4ctypes.so lib
 
 mgm_multi:
-	$(MAKE) -C 3rdparty/mgm_multi
+	$(MAKE) -j -C 3rdparty/mgm_multi
 	cp 3rdparty/mgm_multi/mgm       bin
 	cp 3rdparty/mgm_multi/mgm_multi bin
 
 tvl1:
-	$(MAKE) -C 3rdparty/tvl1flow
+	$(MAKE) -j -C 3rdparty/tvl1flow
 	cp 3rdparty/tvl1flow/tvl1flow bin
 	cp 3rdparty/tvl1flow/callTVL1.sh bin
 
 # compiled but not used (plain mgm is already included from multi_mgm)
 mgm:
-	$(MAKE) -C 3rdparty/mgm
+	$(MAKE) -j -C 3rdparty/mgm
 	#cp 3rdparty/mgm/mgm bin
 
 
@@ -67,12 +67,12 @@ msmw3:
 	cp 3rdparty/msmw3/msmw bin
 
 sgbm:
-	$(MAKE) -C 3rdparty/sgbm
+	$(MAKE) -j -C 3rdparty/sgbm
 	cp 3rdparty/sgbm/sgbm bin
 
 sgbm_opencv:
 	mkdir -p bin/build_sgbm
-	cd bin/build_sgbm; cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_PREFIX_PATH=~/local ../../3rdparty/stereo_hirschmuller_2008; $(MAKE)
+	cd bin/build_sgbm; cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_PREFIX_PATH=~/local ../../3rdparty/stereo_hirschmuller_2008; $(MAKE) -j
 	cp bin/build_sgbm/sgbm2 bin
 	cp bin/build_sgbm/SGBM bin
 	cp 3rdparty/stereo_hirschmuller_2008/callSGBM.sh bin
@@ -81,13 +81,13 @@ sgbm_opencv:
 
 msmw2:
 	mkdir -p bin/build_msmw2
-	cd bin/build_msmw2; cmake -D CMAKE_BUILD_TYPE=Release ../../3rdparty/msmw2; $(MAKE)
+	cd bin/build_msmw2; cmake -D CMAKE_BUILD_TYPE=Release ../../3rdparty/msmw2; $(MAKE) -j
 	cp bin/build_msmw2/libstereo_newversion/iip_stereo_correlation_multi_win2_newversion bin
 
 
 sgm_gpu:
 	mkdir -p bin/build_sgm_gpu
-	cd bin/build_sgm_gpu; cmake -D CMAKE_BUILD_TYPE=Release ../../3rdparty/sgm_gpu-develop-for-s2p; $(MAKE)
+	cd bin/build_sgm_gpu; cmake -D CMAKE_BUILD_TYPE=Release ../../3rdparty/sgm_gpu-develop-for-s2p; $(MAKE) -j
 	cp bin/build_sgm_gpu/libstereosgm.so lib
 	cp 3rdparty/sgm_gpu-develop-for-s2p/src/libsgmgpu.h lib
 

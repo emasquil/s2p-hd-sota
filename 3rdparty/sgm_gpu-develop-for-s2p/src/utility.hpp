@@ -130,6 +130,11 @@ __device__ inline void load_uint8_vector<16u>(uint32_t *dest, const uint8_t *ptr
 	load_uint8_vector<4u>(dest + 12, reinterpret_cast<const uint8_t *>(&uint32x4.w));
 }
 
+template <>
+__device__ inline void load_uint8_vector<32u>(uint32_t *dest, const uint8_t *ptr){
+	load_uint8_vector<16u>(dest +  0, ptr +  0);
+	load_uint8_vector<16u>(dest + 16, ptr + 16);
+}
 
 template <unsigned int N>
 __device__ inline void store_uint8_vector(uint8_t *dest, const uint32_t *ptr);
@@ -170,6 +175,11 @@ __device__ inline void store_uint8_vector<16u>(uint8_t *dest, const uint32_t *pt
 	store_as<uint4>(dest, uint32x4);
 }
 
+template <>
+__device__ inline void store_uint8_vector<32u>(uint8_t *dest, const uint32_t *ptr){
+	store_uint8_vector<16u>(dest +   0, ptr +   0);
+	store_uint8_vector<16u>(dest +  16, ptr +  16);
+}
 
 template <unsigned int N>
 __device__ inline void load_uint16_vector(uint32_t *dest, const uint16_t *ptr);
@@ -198,6 +208,12 @@ __device__ inline void load_uint16_vector<8u>(uint32_t *dest, const uint16_t *pt
 	load_uint16_vector<2u>(dest + 2, reinterpret_cast<const uint16_t *>(&uint32x4.y));
 	load_uint16_vector<2u>(dest + 4, reinterpret_cast<const uint16_t *>(&uint32x4.z));
 	load_uint16_vector<2u>(dest + 6, reinterpret_cast<const uint16_t *>(&uint32x4.w));
+}
+
+template <>
+__device__ inline void load_uint16_vector<16u>(uint32_t *dest, const uint16_t *ptr){
+	load_uint16_vector<8u>(dest +  0, ptr + 0);
+	load_uint16_vector<8u>(dest +  8, ptr + 8);
 }
 
 

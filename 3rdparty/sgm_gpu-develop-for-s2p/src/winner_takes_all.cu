@@ -307,5 +307,6 @@ void WinnerTakesAll<MAX_DISPARITY>::enqueue(
 template class WinnerTakesAll< 64>;
 template class WinnerTakesAll<128>;
 template class WinnerTakesAll<256>;
+template class WinnerTakesAll<512>;
 
 }

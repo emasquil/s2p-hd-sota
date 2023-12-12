@@ -30,7 +30,7 @@ struct sgm_handle {
 extern "C" sgm_handle *make_sgm_gpu(int disp_size, int P1, int P2, float uniqueness,
                          int num_paths, int min_disp, int LR_max_diff,
                          bool subpixel, bool verbose) {
-  ASSERT_MSG(disp_size == 64 || disp_size == 128 || disp_size == 256,
+  ASSERT_MSG(disp_size == 64 || disp_size == 128 || disp_size == 256 || disp_size == 512,
              "disparity size must be 64, 128 or 256.");
   ASSERT_MSG(num_paths == 4 || num_paths == 8,
              "number of scanlines must be 4 or 8.");

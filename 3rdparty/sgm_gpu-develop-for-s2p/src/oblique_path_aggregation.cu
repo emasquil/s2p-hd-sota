@@ -21,8 +21,8 @@ limitations under the License.
 namespace sgm {
 namespace path_aggregation {
 
-static constexpr unsigned int DP_BLOCK_SIZE = 16u;
-static constexpr unsigned int BLOCK_SIZE = WARP_SIZE * 8u;
+static constexpr unsigned int DP_BLOCK_SIZE = 32u;
+static constexpr unsigned int BLOCK_SIZE = WARP_SIZE * 16u;
 
 template <int X_DIRECTION, int Y_DIRECTION, unsigned int MAX_DISPARITY>
 __global__ void aggregate_oblique_path_kernel(
@@ -233,6 +233,17 @@ template void enqueue_aggregate_upleft2downright_path<256u>(
 	int min_disp,
 	cudaStream_t stream);
 
+template void enqueue_aggregate_upleft2downright_path<512u>(
+	cost_type *dest,
+	const feature_type *left,
+	const feature_type *right,
+	int width,
+	int height,
+	unsigned int p1,
+	unsigned int p2,
+	int min_disp,
+	cudaStream_t stream);
+
 template void enqueue_aggregate_upright2downleft_path<64u>(
 	cost_type *dest,
 	const feature_type *left,
@@ -256,6 +267,17 @@ template void enqueue_aggregate_upright2downleft_path<128u>(
 	cudaStream_t stream);
 
 template void enqueue_aggregate_upright2downleft_path<256u>(
+	cost_type *dest,
+	const feature_type *left,
+	const feature_type *right,
+	int width,
+	int height,
+	unsigned int p1,
+	unsigned int p2,
+	int min_disp,
+	cudaStream_t stream);
+
+template void enqueue_aggregate_upright2downleft_path<512u>(
 	cost_type *dest,
 	const feature_type *left,
 	const feature_type *right,
@@ -299,6 +321,17 @@ template void enqueue_aggregate_downright2upleft_path<256u>(
 	int min_disp,
 	cudaStream_t stream);
 
+template void enqueue_aggregate_downright2upleft_path<512u>(
+	cost_type *dest,
+	const feature_type *left,
+	const feature_type *right,
+	int width,
+	int height,
+	unsigned int p1,
+	unsigned int p2,
+	int min_disp,
+	cudaStream_t stream);
+
 template void enqueue_aggregate_downleft2upright_path<64u>(
 	cost_type *dest,
 	const feature_type *left,
@@ -322,6 +355,17 @@ template void enqueue_aggregate_downleft2upright_path<128u>(
 	cudaStream_t stream);
 
 template void enqueue_aggregate_downleft2upright_path<256u>(
+	cost_type *dest,
+	const feature_type *left,
+	const feature_type *right,
+	int width,
+	int height,
+	unsigned int p1,
+	unsigned int p2,
+	int min_disp,
+	cudaStream_t stream);
+
+template void enqueue_aggregate_downleft2upright_path<512u>(
 	cost_type *dest,
 	const feature_type *left,
 	const feature_type *right,

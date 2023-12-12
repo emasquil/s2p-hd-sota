@@ -70,12 +70,16 @@ namespace sgm {
 				sgm_engine = new SemiGlobalMatchingImpl<uint8_t, 128>();
 			else if (input_depth_bits_ == 8 && disparity_size_ == 256)
 				sgm_engine = new SemiGlobalMatchingImpl<uint8_t, 256>();
+			else if (input_depth_bits_ == 8 && disparity_size_ == 512)
+				sgm_engine = new SemiGlobalMatchingImpl<uint8_t, 512>();
 			else if (input_depth_bits_ == 16 && disparity_size_ == 64)
 				sgm_engine = new SemiGlobalMatchingImpl<uint16_t, 64>();
 			else if (input_depth_bits_ == 16 && disparity_size_ == 128)
 				sgm_engine = new SemiGlobalMatchingImpl<uint16_t, 128>();
 			else if (input_depth_bits_ == 16 && disparity_size_ == 256)
 				sgm_engine = new SemiGlobalMatchingImpl<uint16_t, 256>();
+			else if (input_depth_bits_ == 16 && disparity_size_ == 512)
+				sgm_engine = new SemiGlobalMatchingImpl<uint16_t, 512>();
 			else
 				throw std::logic_error("depth bits must be 8 or 16, and disparity size must be 64 or 128");
 
@@ -160,9 +164,9 @@ namespace sgm {
 			width_ = height_ = input_depth_bits_ = output_depth_bits_ = disparity_size_ = 0;
 			throw std::logic_error("depth bits must be 8 or 16");
 		}
-		if (disparity_size_ != 64 && disparity_size_ != 128 && disparity_size != 256) {
+		if (disparity_size_ != 64 && disparity_size_ != 128 && disparity_size != 256 && disparity_size != 512) {
 			width_ = height_ = input_depth_bits_ = output_depth_bits_ = disparity_size_ = 0;
-			throw std::logic_error("disparity size must be 64, 128 or 256");
+			throw std::logic_error("disparity size must be 64, 128, 256 or 512");
 		}
 		if (!has_enough_depth(output_depth_bits, disparity_size, param_.min_disp, param_.subpixel)) {
 			width_ = height_ = input_depth_bits_ = output_depth_bits_ = disparity_size_ = 0;

@@ -232,7 +232,7 @@ namespace sgm {
             std::cout << "\tsgm median_filter time = " << std::chrono::duration_cast<std::chrono::microseconds>(end_median_filter - begin_median_filter).count() << "[us]" << std::endl;
 
         std::chrono::steady_clock::time_point begin_check_consistency = std::chrono::steady_clock::now();
-        sgm::details::check_consistency((uint16_t*)d_left_disp, (uint16_t*)d_right_disp, d_input_left, width_, height_, input_depth_bits_, src_pitch_, dst_pitch_, param_.subpixel, param_.LR_max_diff);
+        sgm::details::check_consistency((uint16_t*)d_left_disp, (uint16_t*)d_right_disp, d_input_left, width_, height_, input_depth_bits_, src_pitch_, dst_pitch_, param_.subpixel, param_.LR_max_diff, param_.min_disp);
         std::chrono::steady_clock::time_point end_check_consistency = std::chrono::steady_clock::now();
         if (param_.verbose)
             std::cout << "\tsgm check_consistency time = " << std::chrono::duration_cast<std::chrono::microseconds>(end_check_consistency - begin_check_consistency).count() << "[us]" << std::endl;

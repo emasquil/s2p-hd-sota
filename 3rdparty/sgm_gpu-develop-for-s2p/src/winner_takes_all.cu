@@ -76,7 +76,8 @@ __global__ void winner_takes_all_kernel(
 	int width,
 	int height,
 	int pitch,
-	float uniqueness)
+	float uniqueness, 
+	int min_disp)
 {
 	static const unsigned int ACCUMULATION_PER_THREAD = 16u;
 	static const unsigned int REDUCTION_PER_THREAD = MAX_DISPARITY / WARP_SIZE;
@@ -175,8 +176,8 @@ __global__ void winner_takes_all_kernel(
 #endif
 					right_best[i] = min(right_best[i], recv);
 					if(d == MAX_DISPARITY - 1){
-						if(0 <= p){
-							right_dest[p] = compute_disparity_normal(unpack_index(right_best[i]));
+						if(0 <= p - min_disp){
+							right_dest[p - min_disp] = compute_disparity_normal(unpack_index(right_best[i]));
 						}
 						right_best[i] = 0xffffffffu;
 					}
@@ -201,8 +202,8 @@ __global__ void winner_takes_all_kernel(
 	for(unsigned int i = 0; i < REDUCTION_PER_THREAD; ++i){
 		const unsigned int k = lane_id * REDUCTION_PER_THREAD + i;
 		const int p = static_cast<int>(((width - k) & ~(MAX_DISPARITY - 1)) + k);
-		if(0 <= p && p < width){
-			right_dest[p] = compute_disparity_normal(unpack_index(right_best[i]));
+		if(0 <= p - min_disp && p - min_disp < width){
+			right_dest[p - min_disp] = compute_disparity_normal(unpack_index(right_best[i]));
 		}
 	}
 }
@@ -218,6 +219,7 @@ void enqueue_winner_takes_all(
 	float uniqueness,
 	bool subpixel,
 	PathType path_type,
+	int min_disp,
 	cudaStream_t stream)
 {
 	const int gdim =
@@ -225,16 +227,16 @@ void enqueue_winner_takes_all(
 	const int bdim = BLOCK_SIZE;
 	if (subpixel && path_type == PathType::SCAN_8PATH) {
 		winner_takes_all_kernel<MAX_DISPARITY, 8, compute_disparity_subpixel<MAX_DISPARITY>><<<gdim, bdim, 0, stream>>>(
-			left_dest, right_dest, src, width, height, pitch, uniqueness);
+			left_dest, right_dest, src, width, height, pitch, uniqueness, min_disp);
 	} else if (subpixel && path_type == PathType::SCAN_4PATH) {
 		winner_takes_all_kernel<MAX_DISPARITY, 4, compute_disparity_subpixel<MAX_DISPARITY>><<<gdim, bdim, 0, stream>>>(
-			left_dest, right_dest, src, width, height, pitch, uniqueness);
+			left_dest, right_dest, src, width, height, pitch, uniqueness, min_disp);
 	} else if (!subpixel && path_type == PathType::SCAN_8PATH) {
 		winner_takes_all_kernel<MAX_DISPARITY, 8, compute_disparity_normal><<<gdim, bdim, 0, stream>>>(
-			left_dest, right_dest, src, width, height, pitch, uniqueness);
+			left_dest, right_dest, src, width, height, pitch, uniqueness, min_disp);
 	} else /* if (!subpixel && path_type == PathType::SCAN_4PATH) */ {
 		winner_takes_all_kernel<MAX_DISPARITY, 4, compute_disparity_normal><<<gdim, bdim, 0, stream>>>(
-			left_dest, right_dest, src, width, height, pitch, uniqueness);
+			left_dest, right_dest, src, width, height, pitch, uniqueness, min_disp);
 	}
 }
 
@@ -256,6 +258,7 @@ void WinnerTakesAll<MAX_DISPARITY>::enqueue(
 	float uniqueness,
 	bool subpixel,
 	PathType path_type,
+	int min_disp,
 	cudaStream_t stream)
 {
 	if(m_left_buffer.size() != static_cast<size_t>(pitch * height)){
@@ -274,6 +277,7 @@ void WinnerTakesAll<MAX_DISPARITY>::enqueue(
 		uniqueness,
 		subpixel,
 		path_type,
+		min_disp,
 		stream);
 }
 
@@ -288,6 +292,7 @@ void WinnerTakesAll<MAX_DISPARITY>::enqueue(
 	float uniqueness,
 	bool subpixel,
 	PathType path_type,
+	int min_disp,
 	cudaStream_t stream)
 {
 	enqueue_winner_takes_all<MAX_DISPARITY>(
@@ -300,6 +305,7 @@ void WinnerTakesAll<MAX_DISPARITY>::enqueue(
 		uniqueness,
 		subpixel,
 		path_type,
+		min_disp,
 		stream);
 }
 

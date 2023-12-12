@@ -84,7 +84,7 @@ public:
 			dest_left, dest_right,
 			m_path_aggregation.get_output(),
 			width, height, dst_pitch,
-			param.uniqueness, param.subpixel, param.path_type,
+			param.uniqueness, param.subpixel, param.path_type, param.min_disp,
 			stream);
         std::chrono::steady_clock::time_point end_m_winner_takes_all = std::chrono::steady_clock::now();
 	if (param.verbose)

@@ -16,7 +16,13 @@ if (OpenCV_VERSION VERSION_LESS 3.0)
 endif()
 
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${TIFF_INCLUDE_DIR})
+include_directories(${JPEG_INCLUDE_DIR})
+include_directories(${PNG_INCLUDE_DIR})
 find_package( OpenCV REQUIRED )
+find_package( TIFF REQUIRED )
+find_package( JPEG REQUIRED )
+find_package( PNG REQUIRED )
 
 file(GLOB stereosgm_SRC
      "src/*.cu"
@@ -24,6 +30,9 @@ file(GLOB stereosgm_SRC
      "src/*.c"
      "src/*.hpp"
 )
+
+cuda_add_executable(stereosgm.bin src/stereosgm_image.cpp src/stereo_sgm.cpp ${stereosgm_SRC})
+target_link_libraries(stereosgm.bin ${CUDA_LIBRARIES} ${OpenCV_LIBS} ${TIFF_LIBRARIES} ${JPEG_LIBRARIES} ${PNG_LIBRARIES})
 
 cuda_add_library(stereosgm src/libsgmgpu.cpp src/stereo_sgm.cpp ${stereosgm_SRC} SHARED)
 target_link_libraries(stereosgm ${CUDA_LIBRARIES} ${OpenCV_LIBS})

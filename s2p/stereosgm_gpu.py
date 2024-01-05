@@ -35,14 +35,16 @@ def run(
     nb_dir: int,
     disp_min: int,
     verbose: bool = False,
+    P1: int = 10,
+    P2: int = 40
 ) -> NDArray[np.float32]:
     h = sgmgpu.make_sgm_gpu(
         # disp_size
-        256,
+        512,
         # P1
-        10,
+        P1,
         # P2
-        120,
+        P2,
         # uniqueness
         0.95,
         # num_paths

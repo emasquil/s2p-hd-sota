@@ -35,6 +35,6 @@ cuda_add_executable(stereosgm.bin src/stereosgm_image.cpp src/stereo_sgm.cpp ${s
 target_link_libraries(stereosgm.bin ${CUDA_LIBRARIES} ${OpenCV_LIBS} ${TIFF_LIBRARIES} ${JPEG_LIBRARIES} ${PNG_LIBRARIES})
 
 cuda_add_library(stereosgm src/libsgmgpu.cpp src/stereo_sgm.cpp ${stereosgm_SRC} SHARED)
-target_link_libraries(stereosgm ${CUDA_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(stereosgm ${CUDA_LIBRARIES} ${OpenCV_LIBS} ${TIFF_LIBRARIES} ${JPEG_LIBRARIES} ${PNG_LIBRARIES})
 install(TARGETS stereosgm DESTINATION lib)
 install(FILES ./src/libsgmgpu.h DESTINATION lib)

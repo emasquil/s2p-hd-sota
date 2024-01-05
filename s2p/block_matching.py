@@ -49,6 +49,36 @@ def create_rejection_mask(disp, im1, im2, mask):
     common.rasterio_write(mask, m )
 
 
+
+def leftright(offL, offR, maxdiff=1):
+    '''
+    Filters the disparity maps applying the left-right consistency test
+        | offR(round(x - offL(x))) + offR(x)| <= maxdiff
+
+    Args:
+        offL, offR: numpy arrays containing the Left and Right disparity maps
+        maxdiff: threshold for the uniqueness constraint  
+
+    Returns:
+        numpy array containing the offL disparity map, 
+        where the rejected pixels are set to np.inf      
+    '''
+    sh = offL.shape
+    mnan = np.isnan(offL)
+    X, Y = np.meshgrid(range(sh[1]), range(sh[0]))
+    offLa = np.nan_to_num(offL,0)
+    X = np.round(np.clip(X + offLa, 0, sh[1]-1)).astype(int)
+    m = (np.abs(offLa + offR[Y,X] ) > maxdiff ) 
+    out = offL.copy()
+    out[m] = np.nan
+    out[mnan] = np.nan
+    return out
+
+
+
+
+
+
 def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
                           disp_max=None, timeout=600, max_disp_range=None,
                           extra_params=''):
@@ -173,6 +203,11 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
 
     if algo == 'stereosgm_gpu':
         nb_dir = cfg['mgm_nb_directions']
+        # it is required that p2 > p1. The larger p1, p2, the smoother the disparity
+        regularity_multiplier = cfg['stereo_regularity_multiplier']
+        P1 = int(10*regularity_multiplier)   # penalizes disparity changes of 1 between neighbor pixels
+        P2 = int(40*regularity_multiplier)  # penalizes disparity changes of more than 1
+
 
         from s2p import stereosgm_gpu
         i1 = common.rio_read_as_array_with_nans(im1)
@@ -184,22 +219,31 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         print (disp_min, disp_max)
         i1o = ndimage.zoom(np.nan_to_num(i1), .5, mode='reflect')
         i2o = ndimage.zoom(np.nan_to_num(i2), .5, mode='reflect')
-        dispmino = (disp_min + disp_max)//2 - 128 
+        dispmino = (disp_min + disp_max)//2 - 256 
         print (dispmino)
-        resulto = stereosgm_gpu.run(i1o, i2o, nb_dir=nb_dir, disp_min=dispmino)
+        resulto = stereosgm_gpu.run(i1o, i2o, nb_dir=nb_dir, disp_min=dispmino, P1=P1, P2=P2)
         # debug
         # common.rasterio_write(disp+'o.tif', resulto)
-        disp_min, disp_max = np.nanquantile(resulto[20:-20,20:-20], [0.001, 0.999])
+        disp_min, disp_max, disp_med = np.nanquantile(resulto[20:-20,20:-20], [0.001, 0.999, 0.5])
 
-        print (disp_min, disp_max)
+        print (disp_min, disp_max, disp_med)
        
 
-        result = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_max*2))
+        #result = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_max*2),P1=P1, P2=P2)
+        result  = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2)
+        #resultR = stereosgm_gpu.run(i2, i1, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2)
+
+        #result = leftright(result, resultR, maxdiff=1)
+        
         result[0:2,:] = np.nan
         result[-3:-1,:] = np.nan
         result[:,0:2] = np.nan
         result[:,-1:-3] = np.nan
+
+
+
         common.rasterio_write(disp, result)
+        #common.rasterio_write(disp+'r.tif', resultR)
 
         create_rejection_mask(disp, im1, im2, mask)
 

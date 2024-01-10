@@ -129,7 +129,7 @@
               cp ${sgm_gpu}/lib/libstereosgm.so $out/lib/python3.10/site-packages/lib/
             '';
           });
-          s2p-cuda-fix = pkgs.writeShellScriptBin "s2p-cuda-fix" ''
+          s2p-cuda-fix = pkgs.writeShellScriptBin "s2p" ''
             ${nixgl.packages.${system}.nixGLNvidia}/bin/nixGLNvidia* ${s2p-cuda}/bin/s2p $@
           '';
           s2p = pkgs.python3Packages.buildPythonApplication {
@@ -178,6 +178,16 @@
             '';
             pythonImportsCheck = ["s2p"];
             doCheck = false;
+          };
+          dockerImage = pkgs.dockerTools.streamLayeredImage {
+            # build with: nix build --impure .#dockerImage
+            # and then: ./result | docker load
+            name = "s2p-hd-cuda";
+            tag = "latest";
+            contents = with pkgs; [s2p-cuda-fix fish];
+            config = {
+              Cmd = ["${s2p-cuda-fix}/bin/s2p"];
+            };
           };
         };
       }

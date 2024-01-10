@@ -621,6 +621,10 @@ def main(user_cfg, start_from=0):
     """
     common.reset_elapsed_time()
 
+    # s2p is already using (processed-based) parallelism when needed
+    os.environ['GDAL_NUM_THREADS'] = "1"
+    os.environ['OMP_NUM_THREADS'] = "1"
+
     cfg = config.get_default_config()
     initialization.build_cfg(cfg, user_cfg)
     initialization.make_dirs(cfg)

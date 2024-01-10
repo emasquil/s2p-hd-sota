@@ -50,6 +50,11 @@ def keypoints_from_nparray(arr, thresh_dog=0.0133, nb_octaves=8, nb_scales=3, of
     Returns:
         A numpy array of shape (nb_points,132) containing for each row (y,x,scale,orientation, sift_descriptor)
     """
+    # avoid computing sift on degenerate tiles
+    # note that 32 is completely arbitrary here, and should instead depend on nb_octaves and nb_scales
+    if arr.shape[0] < 32 or arr.shape[1] < 32:
+        return np.empty((0, 132), dtype=np.float64)
+
     # retrieve numpy buffer dimensions
     h, w = arr.shape
 
@@ -273,6 +278,11 @@ def matches_on_rpc_roi(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
     for _ in range(2):
         p1 = image_keypoints(im1, x, y, w, h, thresh_dog=thresh_dog)
         p2 = image_keypoints(im2, x2, y2, w2, h2, thresh_dog=thresh_dog)
+
+        if p1.size == 0 or p2.size == 0:
+            thresh_dog /= 2.0
+            continue
+
         matches = keypoints_match(p1, p2, method, sift_thresh, F,
                                   epipolar_threshold=epipolar_threshold,
                                   model='fundamental')

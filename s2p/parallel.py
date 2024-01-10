@@ -75,37 +75,64 @@ def launch_calls(cfg, fun, list_of_args, nb_workers, *extra_args, tilewise=True,
     outputs = []
     show_progress.counter = 0
     show_progress.total = len(list_of_args)
-    pool = multiprocessing.Pool(nb_workers)
-    for x in list_of_args:
-        args = tuple()
-        if type(x) == tuple:
-            args += x
-        else:
-            args += (x,)
-        args += extra_args
-        if tilewise:
+
+    if nb_workers != 1:
+        # use a `spawn` strategy, because 'fork' is unsafe when threads are involved
+        # and forkserver is only available on linux (and might also be unsafe anyway)
+        mp_context = multiprocessing.get_context("spawn")
+        pool = mp_context.Pool(nb_workers)
+
+        for x in list_of_args:
+            args = tuple()
             if type(x) == tuple:
-                if len(x) == 3:  # we expect x = (cfg, tile_dictionary, pair_id)
-                    log = os.path.join(x[1].dir, 'pair_%d' % x[2], 'stdout.log')
-                else:  # we expect x = (cfg, tile_dictionary)
-                    log = os.path.join(x[1].dir, 'stdout.log')
-            else:  # we expect x = tile_dictionary
-                log = os.path.join(x.dir, 'stdout.log')
-            args = (cfg, fun,) + args
-            results.append(pool.apply_async(tilewise_wrapper, args=args,
-                                            kwds={'stdout': log},
-                                            callback=show_progress))
-        else:
-            results.append(pool.apply_async(fun, args=args, callback=show_progress))
+                args += x
+            else:
+                args += (x,)
+            args += extra_args
+            if tilewise:
+                if type(x) == tuple:
+                    if len(x) == 3:  # we expect x = (cfg, tile_dictionary, pair_id)
+                        log = os.path.join(x[1].dir, 'pair_%d' % x[2], 'stdout.log')
+                    else:  # we expect x = (cfg, tile_dictionary)
+                        log = os.path.join(x[1].dir, 'stdout.log')
+                else:  # we expect x = tile_dictionary
+                    log = os.path.join(x.dir, 'stdout.log')
+                args = (cfg, fun,) + args
+                results.append(pool.apply_async(tilewise_wrapper, args=args,
+                                                kwds={'stdout': log},
+                                                callback=show_progress))
+            else:
+                results.append(pool.apply_async(fun, args=args, callback=show_progress))
 
-    for r in results:
-        try:
-            outputs.append(r.get(timeout))
-        except KeyboardInterrupt:
-            pool.terminate()
-            sys.exit(1)
+        for r in results:
+            o = r.get(timeout)
+            outputs.append(o)
 
-    pool.close()
-    pool.join()
+        pool.close()
+        pool.join()
+
+    else:
+        outputs = []
+        for x in list_of_args:
+            args = tuple()
+            if type(x) == tuple:
+                args += x
+            else:
+                args += (x,)
+            args += extra_args
+            if tilewise:
+                if type(x) == tuple:
+                    if len(x) == 3:  # we expect x = (cfg, tile_dictionary, pair_id)
+                        log = os.path.join(x[1].dir, 'pair_%d' % x[2], 'stdout.log')
+                    else:  # we expect x = (cfg, tile_dictionary)
+                        log = os.path.join(x[1].dir, 'stdout.log')
+                else:  # we expect x = tile_dictionary
+                    log = os.path.join(x.dir, 'stdout.log')
+                args = (cfg, fun,) + args
+                outputs.append(tilewise_wrapper(*args, stdout=log))
+            else:
+                outputs.append(fun(*args))
+
+
     common.print_elapsed_time()
     return outputs

@@ -154,8 +154,9 @@ def disparity_range_from_matches(matches, H1, H2, disp_range_extra_margin):
     x2 = p2[:, 0]
 
     # compute the final disparity range
-    disp_min = np.floor(np.min(x2 - x1))
-    disp_max = np.ceil(np.max(x2 - x1))
+    #disp_min = np.floor(np.min(x2 - x1))
+    #disp_max = np.ceil(np.max(x2 - x1))
+    disp_min, disp_max = np.quantile (x2-x1, [0.01, 0.99])
 
     # add a security margin to the disparity range
     disp_min -= (disp_max - disp_min) * disp_range_extra_margin

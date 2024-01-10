@@ -168,6 +168,7 @@ def rectification_pair(cfg, tile: Tile, i: int) -> None:
 #        common.remove(os.path.join(out_dir, 'sift_matches.txt'))
 
 
+
 def disparity_range_check(cfg, tile: Tile, i: int):
     """
     Reason about the estimated disparity ranges for all the tiles and update them if needed
@@ -175,6 +176,8 @@ def disparity_range_check(cfg, tile: Tile, i: int):
     Args:
         tile: dictionary containing the information needed to process a tile.
         i: index of the processed pair
+    Returns: 
+        True if the tile passes the test False otherwise
     """
     out_dir = os.path.join(tile.dir, 'pair_{}'.format(i))
     x, y, w, h = tile.coordinates
@@ -197,8 +200,9 @@ def disparity_range_check(cfg, tile: Tile, i: int):
         m = None
 
     # TODO: reason about the disparity range of the current tile based on the range of neighboring tiles
-    print('checking tile {} {} pair {}...'.format(x, y, i))
-    print(disp_min, disp_max)
+    if disp_max - disp_min > 100:
+        print('checking tile {} {} pair {}... {} {}'.format(x, y, i, disp_min, disp_max))
+
 
     for n in tile.neighborhood_dirs:
         nei_dir = os.path.join(tile.dir, n, 'pair_{}'.format(i))
@@ -207,7 +211,12 @@ def disparity_range_check(cfg, tile: Tile, i: int):
             dmin_dmax_from_neighborhood = os.path.join(nei_dir, 'disp_min_max.txt')
             # TODO continue this
 
-
+    # This is a very simple heuristic test. If the disparity range is > 512 something is wrong with the tile 
+    if disp_max-disp_min > w/2:
+        return False
+    else:
+        return True
+    
 
 def stereo_matching(cfg, tile: Tile, i: int) -> None:
     """
@@ -665,8 +674,12 @@ def main(user_cfg, start_from=0):
         print('4) reason about the disparity ranges... (WIP)')
         # extra step checking the disparity range
         # verity if the disparity range of a tile is not too different from its neighbors
-        for _, t, i in tiles_pairs:
-            disparity_range_check(cfg, t, i)
+        tiles_usefulnesses = parallel.launch_calls(cfg, disparity_range_check, tiles_pairs, nb_workers,
+                              timeout=timeout)
+  
+        # updqte the tiles removing the discarded tiles
+        tiles_pairs = [x for x, b in zip(tiles_pairs, tiles_usefulnesses) if b]
+
 
     # matching step:
     if start_from <= 4:

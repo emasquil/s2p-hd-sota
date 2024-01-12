@@ -16,10 +16,6 @@ from s2p import visualisation
 from s2p import homography
 
 
-class NoRectificationMatchesError(Exception):
-    pass
-
-
 class NoHorizontalRegistrationWarning(Warning):
     pass
 
@@ -327,7 +323,7 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
 
     if matches is None or len(matches) < 4:
         print("No or not enough matches found to rectify image pair")
-        return False
+        return None, None, None, None, False
 
     # compute rectifying homographies
     H1, H2, F = rectification_homographies(matches, x, y, w, h, debug=debug)

@@ -158,10 +158,11 @@ def rectification_pair(cfg, tile: Tile, i: int) -> None:
                                                                      hmargin=cfg['horizontal_margin'],
                                                                      vmargin=cfg['vertical_margin'])
 
-    np.savetxt(os.path.join(out_dir, 'H_ref.txt'), H1, fmt='%12.6f')
-    np.savetxt(os.path.join(out_dir, 'H_sec.txt'), H2, fmt='%12.6f')
-    np.savetxt(os.path.join(out_dir, 'disp_min_max.txt'), [disp_min, disp_max],
-               fmt='%3.1f')
+    if success:
+        np.savetxt(os.path.join(out_dir, 'H_ref.txt'), H1, fmt='%12.6f')
+        np.savetxt(os.path.join(out_dir, 'H_sec.txt'), H2, fmt='%12.6f')
+        np.savetxt(os.path.join(out_dir, 'disp_min_max.txt'), [disp_min, disp_max],
+                   fmt='%3.1f')
 
     return success
 

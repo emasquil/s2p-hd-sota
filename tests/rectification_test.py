@@ -46,22 +46,22 @@ def test_rectify_pair_no_matches(tmp_path, images):
     """
     cfg = get_default_config()
     im1, rpc1, im2, rpc2 = images
-    with pytest.raises(s2p.rectification.NoRectificationMatchesError):
-        s2p.rectification.rectify_pair(
-            cfg,
-            im1=im1,
-            im2=im2,
-            rpc1=rpc1,
-            rpc2=rpc2,
-            x=100,
-            y=100,
-            w=200,
-            h=200,
-            out1=str(tmp_path / 'out1.tiff'),
-            out2=str(tmp_path / 'out2.tiff'),
-            sift_matches=None,
-            method='sift',
-        )
+    _, _, _, _, success = s2p.rectification.rectify_pair(
+        cfg,
+        im1=im1,
+        im2=im2,
+        rpc1=rpc1,
+        rpc2=rpc2,
+        x=100,
+        y=100,
+        w=200,
+        h=200,
+        out1=str(tmp_path / 'out1.tiff'),
+        out2=str(tmp_path / 'out2.tiff'),
+        sift_matches=None,
+        method='sift',
+    )
+    assert not success
 
 
 def test_rectify_pair_few_matches(tmp_path, matches, images):
@@ -70,22 +70,22 @@ def test_rectify_pair_few_matches(tmp_path, matches, images):
     """
     cfg = get_default_config()
     im1, rpc1, im2, rpc2 = images
-    with pytest.raises(s2p.rectification.NoRectificationMatchesError):
-        s2p.rectification.rectify_pair(
-            cfg,
-            im1=im1,
-            im2=im2,
-            rpc1=rpc1,
-            rpc2=rpc2,
-            x=100,
-            y=100,
-            w=200,
-            h=200,
-            out1=str(tmp_path / 'out1.tiff'),
-            out2=str(tmp_path / 'out2.tiff'),
-            sift_matches=matches[:3],
-            method='sift',
-        )
+    _, _, _, _, success = s2p.rectification.rectify_pair(
+        cfg,
+        im1=im1,
+        im2=im2,
+        rpc1=rpc1,
+        rpc2=rpc2,
+        x=100,
+        y=100,
+        w=200,
+        h=200,
+        out1=str(tmp_path / 'out1.tiff'),
+        out2=str(tmp_path / 'out2.tiff'),
+        sift_matches=matches[:3],
+        method='sift',
+    )
+    assert not success
 
 
 def test_rectify_pair_with_matches(tmp_path, matches, images):

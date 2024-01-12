@@ -52,7 +52,7 @@ def image_apply_homography(
     The output image is defined on the domain [0, w] x [0, h]. Its pixels
     intensities are defined by out(x) = im(H^{-1}(x)).
     """
-    homography.run(
+    success = homography.run(
         im.encode("utf-8"),
         wrap(H.flatten()),
         out.encode("utf-8"),
@@ -61,6 +61,7 @@ def image_apply_homography(
         antialiasing,
         verbose,
     )
+    return success
 
 
 def points_apply_homography(H, pts):

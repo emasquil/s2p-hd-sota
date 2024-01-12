@@ -306,6 +306,7 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
         H1, H2: Two 3x3 matrices representing the rectifying homographies that
         have been applied to the two original (large) images.
         disp_min, disp_max: horizontal disparity range
+        success: bool (can be false if not enough matches, invalid homographies, ...)
     """
     debug = cfg['debug']
     # compute real or virtual matches
@@ -325,9 +326,8 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
         raise Exception("Unknown value {} for argument 'method'".format(method))
 
     if matches is None or len(matches) < 4:
-        raise NoRectificationMatchesError(
-            "No or not enough matches found to rectify image pair"
-        )
+        print("No or not enough matches found to rectify image pair")
+        return False
 
     # compute rectifying homographies
     H1, H2, F = rectification_homographies(matches, x, y, w, h, debug=debug)
@@ -380,7 +380,7 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
     np.testing.assert_allclose(np.round([x0, y0]), [hmargin, vmargin], atol=.01)
 
     # apply homographies and do the crops
-    homography.image_apply_homography(out1, im1, H1, w0 + 2*hmargin, h0 + 2*vmargin, verbose=debug)
-    homography.image_apply_homography(out2, im2, H2, w0 + 2*hmargin, h0 + 2*vmargin, verbose=debug)
+    success = homography.image_apply_homography(out1, im1, H1, w0 + 2*hmargin, h0 + 2*vmargin, verbose=debug)
+    success = success and homography.image_apply_homography(out2, im2, H2, w0 + 2*hmargin, h0 + 2*vmargin, verbose=debug)
 
-    return H1, H2, disp_m, disp_M
+    return H1, H2, disp_m, disp_M, success

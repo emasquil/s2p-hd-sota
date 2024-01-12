@@ -44,7 +44,7 @@ static void compute_needed_roi(int *out, double *hom, int w, int h) {
 
 extern "C" void init(void) { GDALAllRegister(); }
 
-extern "C" void run(const char *fname_input, double *hom,
+extern "C" bool run(const char *fname_input, double *hom,
                     const char *fname_output, int out_w, int out_h,
                     bool antiAliasing, bool verbose) {
   Time time;
@@ -76,7 +76,7 @@ extern "C" void run(const char *fname_input, double *hom,
     h = size_y - y;
   if (w <= 0 || h <= 0) {
     fprintf(stderr, "ERROR: empty roi\n");
-    exit(EXIT_FAILURE);
+    return false;
   }
 
   // compensate the homography for the translation due to the crop
@@ -123,4 +123,5 @@ extern "C" void run(const char *fname_input, double *hom,
 
   out.write(fname_output);
   GDALClose(poDataset);
+  return true;
 }

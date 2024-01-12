@@ -150,23 +150,20 @@ def rectification_pair(cfg, tile: Tile, i: int) -> None:
 
     rect1 = os.path.join(out_dir, 'rectified_ref.tif')
     rect2 = os.path.join(out_dir, 'rectified_sec.tif')
-    H1, H2, disp_min, disp_max = rectification.rectify_pair(cfg, img1, img2,
-                                                            rpc1, rpc2,
-                                                            x, y, w, h,
-                                                            rect1, rect2, A, m,
-                                                            method=cfg['rectification_method'],
-                                                            hmargin=cfg['horizontal_margin'],
-                                                            vmargin=cfg['vertical_margin'])
+    H1, H2, disp_min, disp_max, success = rectification.rectify_pair(cfg, img1, img2,
+                                                                     rpc1, rpc2,
+                                                                     x, y, w, h,
+                                                                     rect1, rect2, A, m,
+                                                                     method=cfg['rectification_method'],
+                                                                     hmargin=cfg['horizontal_margin'],
+                                                                     vmargin=cfg['vertical_margin'])
+
     np.savetxt(os.path.join(out_dir, 'H_ref.txt'), H1, fmt='%12.6f')
     np.savetxt(os.path.join(out_dir, 'H_sec.txt'), H2, fmt='%12.6f')
     np.savetxt(os.path.join(out_dir, 'disp_min_max.txt'), [disp_min, disp_max],
                fmt='%3.1f')
 
-    if cfg['clean_intermediate']:
-        pass
-#        common.remove(os.path.join(out_dir, 'pointing.txt'))
-#        common.remove(os.path.join(out_dir, 'sift_matches.txt'))
-
+    return success
 
 
 def disparity_range_check(cfg, tile: Tile, i: int):
@@ -176,7 +173,7 @@ def disparity_range_check(cfg, tile: Tile, i: int):
     Args:
         tile: dictionary containing the information needed to process a tile.
         i: index of the processed pair
-    Returns: 
+    Returns:
         True if the tile passes the test False otherwise
     """
     out_dir = os.path.join(tile.dir, 'pair_{}'.format(i))
@@ -211,12 +208,12 @@ def disparity_range_check(cfg, tile: Tile, i: int):
             dmin_dmax_from_neighborhood = os.path.join(nei_dir, 'disp_min_max.txt')
             # TODO continue this
 
-    # This is a very simple heuristic test. If the disparity range is > 512 something is wrong with the tile 
+    # This is a very simple heuristic test. If the disparity range is > 512 something is wrong with the tile
     if disp_max-disp_min > w/2:
         return False
     else:
         return True
-    
+
 
 def stereo_matching(cfg, tile: Tile, i: int) -> None:
     """
@@ -670,8 +667,11 @@ def main(user_cfg, start_from=0):
     # rectification step:
     if start_from <= 3:
         print('3) rectifying tiles...')
-        parallel.launch_calls(cfg, rectification_pair, tiles_pairs, nb_workers,
+        successes = parallel.launch_calls(cfg, rectification_pair, tiles_pairs, nb_workers,
                               timeout=timeout)
+
+        # update the tiles removing the discarded tiles
+        tiles_pairs = [x for x, b in zip(tiles_pairs, successes) if b]
 
     # disparity range reasoning step: (WIP)
     if start_from <= 4:
@@ -680,8 +680,8 @@ def main(user_cfg, start_from=0):
         # verity if the disparity range of a tile is not too different from its neighbors
         tiles_usefulnesses = parallel.launch_calls(cfg, disparity_range_check, tiles_pairs, nb_workers,
                               timeout=timeout)
-  
-        # updqte the tiles removing the discarded tiles
+
+        # update the tiles removing the discarded tiles
         tiles_pairs = [x for x, b in zip(tiles_pairs, tiles_usefulnesses) if b]
 
 

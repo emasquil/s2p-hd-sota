@@ -229,11 +229,14 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         print (disp_min, disp_max, disp_med)
        
 
-        #result = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_max*2),P1=P1, P2=P2)
         result  = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2)
         #resultR = stereosgm_gpu.run(i2, i1, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2)
-
         #result = leftright(result, resultR, maxdiff=1)
+
+        from s2p.specklefilter import specklefilter
+
+        # apply spekle filter 
+        result = specklefilter(result,int(cfg['stereo_speckle_filter']),5) 
         
         result[0:2,:] = np.nan
         result[-3:-1,:] = np.nan

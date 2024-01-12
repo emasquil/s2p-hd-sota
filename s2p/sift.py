@@ -38,7 +38,7 @@ def keypoints_from_nparray(arr, thresh_dog=0.0133, nb_octaves=8, nb_scales=3, of
     Runs SIFT (the keypoints detection and description only, no matching) on an image stored in a 2D numpy array
 
     It uses Ives Rey Otero's implementation published in IPOL:
-    http://www.ipol.im/pub/pre/82/
+        https://www.ipol.im/pub/art/2014/82/
 
     Args:
         arr: A 2D numpy array respresenting the input image
@@ -312,7 +312,7 @@ def image_keypoints_cv(im, x, y, w, h, max_nb=None, thresh_dog=0.0133, nb_octave
             detected, those at smallest scales are discarded
 
     Returns:
-        numpy array of shape (n, 132) containing, on each row: (y, x, s, o, 128-descriptor)
+        (kp, des) from opencv
     """
     # Read file with rasterio
     with rio.open(im) as ds:
@@ -382,6 +382,8 @@ def matches_on_rpc_roi_cv(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
     rpc_matches = rpc_utils.matches_from_rpc(cfg, rpc1, rpc2, x, y, w, h, 5)
     F = estimation.affine_fundamental_matrix(rpc_matches)
 
+    opencv_matcher = True
+
     # if less than 10 matches, lower thresh_dog. An alternative would be ASIFT
     thresh_dog = 0.0133
     for _ in range(2):
@@ -389,34 +391,45 @@ def matches_on_rpc_roi_cv(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
         kp1, des1 = image_keypoints_cv(im1, x, y, w, h, thresh_dog=thresh_dog)
         kp2, des2 = image_keypoints_cv(im2, x2, y2, w2, h2, thresh_dog=thresh_dog)
 
-        # BFMatcher with default params
-        bf = cv.BFMatcher()
-        matches = bf.knnMatch(des1, des2, k=2)
+        if opencv_matcher:
+            # BFMatcher with default params
+            bf = cv.BFMatcher()
+            matches = bf.knnMatch(des1, des2, k=2)
 
-        # Apply ratio test manually
-        good_matches = []
-        for m,n in matches:
-            if m.distance < 0.8*n.distance:
-                good_matches.append([m])
-        #good_matches = matches
+            # Apply ratio test manually
+            good_matches = []
+            for m,n in matches:
+                if m.distance < 0.8*n.distance:
+                    good_matches.append([m])
+            #good_matches = matches
 
-        # Select good matched keypoints
-        ref_matched_kpts = np.float32([kp1[m[0].queryIdx].pt for m in good_matches])
-        sec_matched_kpts = np.float32([kp2[m[0].trainIdx].pt for m in good_matches])
+            # Select good matched keypoints
+            ref_matched_kpts = np.float32([kp1[m[0].queryIdx].pt for m in good_matches])
+            sec_matched_kpts = np.float32([kp2[m[0].trainIdx].pt for m in good_matches])
 
-        if ref_matched_kpts.shape[0] <4:
-            print("WARNING: sift.matches_on_rpc_roi_cv: found no matches.")
-            return None
+            if ref_matched_kpts.shape[0] <4:
+                print("WARNING: sift.matches_on_rpc_roi_cv: found no matches.")
+                return None
 
-        # Compute homography using RANSAC
-        H, mask = cv.findHomography(sec_matched_kpts, ref_matched_kpts, cv.RANSAC, 5.0)
+            # Compute homography using RANSAC
+            H, mask = cv.findHomography(sec_matched_kpts, ref_matched_kpts, cv.RANSAC, 5.0)
 
-        # filter the good_matchs inconsistent with the homography
-        good_matches = [good_matches[i] for i in np.where(mask.squeeze())[0]]
+            # filter the good_matchs inconsistent with the homography
+            good_matches = [good_matches[i] for i in np.where(mask.squeeze())[0]]
 
-#        matches = keypoints_match(p1, p2, method, sift_thresh, F,
-#                                  epipolar_threshold=epipolar_threshold,
-#                                  model='fundamental')
+        else:
+            # see https://github.com/opencv/opencv/issues/4554
+            # for the conversion between kp.octave and a scale
+            to_scale = lambda o: (1. / (1 << o) if o >= 0 else float(1 << -o))
+            p1 = np.asarray([
+                (kp.pt[1], kp.pt[0], to_scale(kp.octave & 255), kp.angle, *des)
+                for kp, des in zip(kp1, des1)], dtype=np.float32)
+            p2 = np.asarray([
+                (kp.pt[1], kp.pt[0], to_scale(kp.octave & 255), kp.angle, *des)
+                for kp, des in zip(kp2, des2)], dtype=np.float32)
+            good_matches = keypoints_match(p1, p2, method, sift_thresh, F,
+                                      epipolar_threshold=epipolar_threshold,
+                                      model='fundamental')
 
 
         if len(good_matches) > 10 :
@@ -425,9 +438,11 @@ def matches_on_rpc_roi_cv(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
     else:
         print("WARNING: sift.matches_on_rpc_roi_cv: found no matches.")
         return None
-    matchesarray = np.float32( [ (kp1[m[0].queryIdx].pt[0],kp1[m[0].queryIdx].pt[1],  kp2[m[0].trainIdx].pt[0],  kp2[m[0].trainIdx].pt[1])  for m in good_matches])
 
-    return matchesarray
+    if opencv_matcher:
+        good_matches = np.float32( [ (kp1[m[0].queryIdx].pt[0],kp1[m[0].queryIdx].pt[1],  kp2[m[0].trainIdx].pt[0],  kp2[m[0].trainIdx].pt[1])  for m in good_matches])
+
+    return good_matches
 
 
 

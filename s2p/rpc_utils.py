@@ -3,6 +3,7 @@
 # Copyright (C) 2015, Enric Meinhardt <enric.meinhardt@cmla.ens-cachan.fr>
 
 
+import logging
 import warnings
 import rasterio
 import numpy as np
@@ -12,6 +13,9 @@ import srtm4
 
 from s2p import geographiclib
 from s2p import common
+
+
+logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore", category=rasterio.errors.NotGeoreferencedWarning)
 
@@ -145,8 +149,8 @@ def min_max_heights_from_bbx(im, lon_m, lon_M, lat_m, lat_M, rpc,
             hmax += offset
         return hmin, hmax
     else:
-        print("WARNING: rpc_utils.min_max_heights_from_bbx: access window out of range")
-        print("returning coarse range from rpc")
+        logging.warning("rpc_utils.min_max_heights_from_bbx: access window out of range")
+        logging.warning("returning coarse range from rpc")
         return altitude_range_coarse(rpc, rpc_alt_range_scale_factor)
 
 
@@ -404,7 +408,7 @@ def alt_to_disp(rpc1, rpc2, x, y, alt, H1, H2, A=None):
     p2 = np.vstack([xx, yy]).T
 
     if A is not None:
-        print("rpc_utils.alt_to_disp: applying pointing error correction")
+        logging.info("applying pointing error correction")
         # correct coordinates of points in im2, according to A
         p2 = common.points_apply_homography(np.linalg.inv(A), p2)
 

@@ -4,6 +4,7 @@
 
 
 import os
+import logging
 import warnings
 
 import numpy as np
@@ -14,6 +15,9 @@ from s2p import evaluation
 from s2p import common
 from s2p import visualisation
 from s2p import homography
+
+
+logger = logging.getLogger(__name__)
 
 
 class NoHorizontalRegistrationWarning(Warning):
@@ -70,8 +74,8 @@ def register_horizontally_shear(matches, H1, H2, debug=False):
     y2 = p2[:, 1]
 
     if debug:
-        print("Residual vertical disparities: max, min, mean. Should be zero")
-        print(np.max(y2 - y1), np.min(y2 - y1), np.mean(y2 - y1))
+        logging.info("Residual vertical disparities: max, min, mean. Should be zero")
+        logging.info("%s %s %s", np.max(y2 - y1), np.min(y2 - y1), np.mean(y2 - y1))
 
     # we search the (a, b, c) vector that minimises \sum (x1 - (a*x2+b*y2+c))^2
     # it is a least squares minimisation problem
@@ -114,8 +118,8 @@ def register_horizontally_translation(matches, H1, H2, flag='center', debug=Fals
 
     # for debug, print the vertical disparities. Should be zero.
     if debug:
-        print("Residual vertical disparities: max, min, mean. Should be zero")
-        print(np.max(y2 - y1), np.min(y2 - y1), np.mean(y2 - y1))
+        logging.info("Residual vertical disparities: max, min, mean. Should be zero")
+        logging.info("%s %s %s", np.max(y2 - y1), np.min(y2 - y1), np.mean(y2 - y1))
 
     # compute the disparity offset according to selected option
     t = 0
@@ -188,7 +192,7 @@ def disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2, matches, A=None):
                                                                    cfg['disp_range_exogenous_high_margin'],
                                                                    cfg['disp_range_exogenous_low_margin'])
 
-        print("exogenous disparity range:", exogenous_disp)
+        logging.info("exogenous disparity range: %s", exogenous_disp)
 
     # compute SIFT disparity range if needed
     if cfg['disp_range_method'] in ['sift', 'wider_sift_exogenous']:
@@ -196,7 +200,7 @@ def disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2, matches, A=None):
             sift_disp = disparity_range_from_matches(matches, H1, H2, cfg['disp_range_extra_margin'])
         else:
             sift_disp = None
-        print("SIFT disparity range:", sift_disp)
+        logging.info("SIFT disparity range: %s", sift_disp)
 
     # compute altitude range disparity if needed
     if cfg['disp_range_method'] == 'fixed_altitude_range':
@@ -204,7 +208,7 @@ def disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2, matches, A=None):
                                                           cfg['alt_max'],
                                                           rpc1, rpc2,
                                                           x, y, w, h, H1, H2, A)
-        print("disparity range computed from fixed altitude range:", alt_disp)
+        logging.info("disparity range computed from fixed altitude range: %s", alt_disp)
 
     # now compute disparity range according to selected method
     if cfg['disp_range_method'] == 'exogenous':
@@ -233,7 +237,7 @@ def disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2, matches, A=None):
     # 'center' flag for register_horizontally_translation)
     disp = min(-3, disp[0]), max(3, disp[1])
 
-    print("Final disparity range:", disp)
+    logging.info("Final disparity range: %s", disp)
     return disp
 
 
@@ -266,8 +270,8 @@ def rectification_homographies(matches, x, y, w, h, debug=False):
         y1 = homography.points_apply_homography(S1, matches[:, :2])[:, 1]
         y2 = homography.points_apply_homography(S2, matches[:, 2:])[:, 1]
         err = np.abs(y1 - y2)
-        print("max, min, mean rectification error on point matches: ", end=' ')
-        print(np.max(err), np.min(err), np.mean(err))
+        logging.info("max, min, mean rectification error on point matches: ")
+        logging.info("%s %s %s", np.max(err), np.min(err), np.mean(err))
 
     # pull back top-left corner of the ROI to the origin (plus margin)
     pts = homography.points_apply_homography(S1, [[x, y], [x+w, y], [x+w, y+h], [x, y+h]])
@@ -322,7 +326,7 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
         raise Exception("Unknown value {} for argument 'method'".format(method))
 
     if matches is None or len(matches) < 4:
-        print("No or not enough matches found to rectify image pair")
+        logging.info("No or not enough matches found to rectify image pair")
         return None, None, None, None, False
 
     # compute rectifying homographies
@@ -352,7 +356,7 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
                                                    debug=debug)
 
     # compute disparity range
-    if debug:
+    if debug and sift_matches is not None:
         out_dir = os.path.dirname(out1)
         np.savetxt(os.path.join(out_dir, 'sift_matches_disp.txt'),
                    sift_matches, fmt='%9.3f')
@@ -360,6 +364,7 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
                                    os.path.join(out_dir,
                                                 'sift_matches_disp.png'),
                                    x, y, w, h)
+
     disp_m, disp_M = disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2,
                                      sift_matches, A)
 

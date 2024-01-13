@@ -5,11 +5,15 @@
 
 
 import os
+import logging
 import numpy as np
 
 from s2p import sift
 from s2p import rpc_utils
 from s2p import estimation
+
+
+logger = logging.getLogger(__name__)
 
 
 def error_vectors(m, F, ind='ref'):
@@ -46,7 +50,7 @@ def error_vectors(m, F, ind='ref'):
     elif ind == 'ref':
         l = np.dot(xx, F)
     else:
-        print("pointing_accuracy.error_vectors: invalid 'ind' argument")
+        logger.error("invalid 'ind' argument")
 
     # compute the error vectors (going from the projection of x or xx on l to x
     # or xx)

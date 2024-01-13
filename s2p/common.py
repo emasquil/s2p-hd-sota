@@ -6,6 +6,7 @@
 
 import os
 import sys
+import logging
 import datetime
 import warnings
 import subprocess
@@ -14,7 +15,7 @@ import rasterio
 from scipy import ndimage
 from typing import Optional
 
-from s2p.specklefilter import specklefilter
+logger = logging.getLogger()
 
 # silent rasterio NotGeoreferencedWarning
 warnings.filterwarnings("ignore",
@@ -51,13 +52,13 @@ def run(cmd, env=os.environ, timeout=None, shell=False):
     Both stdout and stderr of the shell in which the command is run are those
     of the parent process.
     """
-    print("\nRUN: %s" % cmd)
+    logging.info("RUN: %s", cmd)
     t = datetime.datetime.now()
     if not isinstance(cmd, list) and not shell:
         cmd = cmd.split()
     subprocess.run(cmd, shell=shell, stdout=sys.stdout, stderr=sys.stderr,
                    env=env, timeout=timeout, check=True)
-    print(datetime.datetime.now() - t)
+    logging.info("execution time: %s", datetime.datetime.now() - t)
 
 
 def matrix_translation(x, y):
@@ -177,14 +178,13 @@ def print_elapsed_time(since_first_call: bool = False) -> None:
     global _t1
     t2 = datetime.datetime.now()
     if since_first_call:
-        print("Total elapsed time:", t2 - _t0)
+        logging.info("Total elapsed time: %s", t2 - _t0)
     else:
         if _t1 is not None:
-            print("Elapsed time:", t2 - _t1)
+            logging.info("Elapsed time: %s", t2 - _t1)
         else:
-            print("Elapsed time:", t2 - _t0)
+            logging.info("Elapsed time: %s", t2 - _t0)
     _t1 = t2
-    print()
 
 
 def reset_elapsed_time() -> None:
@@ -205,4 +205,6 @@ def linear_stretching_and_quantization_8bit(img, p=1):
         numpy array with the quantized uint8 image
     """
     a, b = np.nanpercentile(img, (p, 100 - p))
-    return np.round(255 * (np.clip(img, a, b) - a) / (b - a)).astype(np.uint8)
+    img = np.round(255 * (np.clip(img, a, b) - a) / (b - a))
+    img = np.nan_to_num(img, nan=0)
+    return img.astype(np.uint8)

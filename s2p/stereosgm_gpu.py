@@ -59,8 +59,8 @@ def run(
         verbose,
     )
 
-    im1 = im1.astype(np.uint16)
-    im2 = im2.astype(np.uint16)
+    im1 = np.nan_to_num(im1, nan=0).astype(np.uint16)
+    im2 = np.nan_to_num(im2, nan=0).astype(np.uint16)
     result = np.zeros_like(im1, dtype=np.float32)
     sgmgpu.exec_sgm_gpu(
         h, im1.shape[0], im1.shape[1], wrap(im1), wrap(im2), wrap(result)

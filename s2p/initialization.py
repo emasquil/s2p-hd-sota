@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import copy
+import logging
 import rasterio
 import numpy as np
 import rpcm
@@ -18,6 +19,9 @@ from s2p import rpc_utils
 from s2p import masking
 from s2p import parallel
 from s2p.tile import Tile
+
+
+logger = logging.getLogger(__name__)
 
 # This function is here as a workaround to python bug #24313 When
 # using python3, json does not know how to serialize numpy.int64 on
@@ -46,11 +50,11 @@ def check_parameters(cfg, d: dict) -> None:
     """
     # verify that input files paths are defined
     if 'images' not in d or len(d['images']) < 2:
-        print('ERROR: missing paths to input images')
+        logger.critical('missing paths to input images')
         sys.exit(1)
     for img in d['images']:
         if not dict_has_keys(img, ['img']):
-            print('ERROR: missing img paths for image', img)
+            logger.critical('missing img paths for image', img)
             sys.exit(1)
 
     # read RPCs
@@ -91,7 +95,7 @@ def check_parameters(cfg, d: dict) -> None:
             ], axis=1)
             target = np.stack(rpc.projection(lonlatalt[:,0], lonlatalt[:,1], lonlatalt[:,2]), axis=1)
             rmse_err, _, _ = rpc_fit.evaluate_localization(img['rpcm'], lonlatalt, target)
-            print('RPC localization fitting error:', rmse_err)
+            logger.info('RPC localization fitting error:', rmse_err)
 
     # verify that an input ROI is defined
     if d.get("full_img"):
@@ -108,7 +112,7 @@ def check_parameters(cfg, d: dict) -> None:
                                          exogenous_dem=d.get('exogenous_dem'),
                                          exogenous_dem_geoid_mode=d.get('exogenous_dem_geoid_mode'))
     else:
-        print('ERROR: missing or incomplete roi definition')
+        logger.critical('missing or incomplete roi definition')
         sys.exit(1)
 
     # d['roi'] : all the values must be integers
@@ -122,7 +126,7 @@ def check_parameters(cfg, d: dict) -> None:
     for k in d.keys():
         if k not in ['images', 'roi', 'roi_geojson']:
             if k not in cfg:
-                print('WARNING: ignoring unknown parameter {}.'.format(k))
+                logger.warning('ignoring unknown parameter {}.'.format(k))
 
 
 def build_cfg(cfg, user_cfg: dict) -> None:
@@ -202,13 +206,13 @@ def adjust_tile_size(cfg) -> Tuple[int, int]:
     nty = int(np.round(float(cfg['roi']['h']) / tile_h))
     tile_h = int(np.ceil(float(cfg['roi']['h']) / nty))
 
-    print('tile size: {} {}'.format(tile_w, tile_h))
+    logger.info('tile size: {} {}'.format(tile_w, tile_h))
     n = len(cfg['images'])
     if n == 2:
-        print('total number of tiles: {} ({} x {})'.format(ntx * nty, ntx, nty))
+        logger.info('total number of tiles: {} ({} x {})'.format(ntx * nty, ntx, nty))
     else:
-        print('total number of tiles: {} ({} x {}) x {} pairs'.format(ntx*nty*(n-1),
-                                                                      ntx, nty, n-1))
+        logger.info('total number of tiles: {} ({} x {}) x {} pairs'.format(ntx*nty*(n-1),
+                                                                            ntx, nty, n-1))
     return tile_w, tile_h
 
 
@@ -393,7 +397,7 @@ def tiles_full_info(cfg, tw, th, tiles_txt, create_masks=False) -> List[Tile]:
     tiles_coords, neighborhood_coords_dict = compute_tiles_coordinates(rx, ry, rw, rh, tw, th)
 
     if create_masks or not os.path.exists(tiles_txt):
-        print('\ndiscarding masked tiles...')
+        logger.info('discarding masked tiles...')
         images_sizes = []
         for img in cfg['images']:
             with rasterio.open(img['img'], 'r') as f:
@@ -457,7 +461,7 @@ def tiles_full_info(cfg, tw, th, tiles_txt, create_masks=False) -> List[Tile]:
                         tiles.append(tile)
 
                     # check if the mask.tif is present; othewise create_masks should have been True
-                    if not os.path.exists( os.path.join (tile.dir, 'mask.tif' ) ):
-                        print ('ERROR: the tile masks (%s) must be initialized: use  --start_from 1' % os.path.join (tile.dir, 'mask.tif'))
-                        return None
+                    if not os.path.exists(os.path.join(tile.dir, 'mask.tif')):
+                        logger.critical('the tile masks (%s) must be initialized: use  --start_from 1' % os.path.join (tile.dir, 'mask.tif'))
+                        sys.exit(1)
     return tiles

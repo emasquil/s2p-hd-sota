@@ -36,7 +36,9 @@ def run(
     disp_min: int,
     verbose: bool = False,
     P1: int = 10,
-    P2: int = 40
+    P2: int = 40,
+    # see 3rdparty/sgm_gpu-develop-for-s2p/src/census_transform.hpp
+    census_transform_size: int = 3,  # 0: 5x5, 1: 7x5, 2: 7x7, 3: 9x7
 ) -> NDArray[np.float32]:
     h = sgmgpu.make_sgm_gpu(
         # disp_size
@@ -55,6 +57,8 @@ def run(
         1,
         # subpixel
         True,
+        # census_transform_size
+        census_transform_size,
         # verbose
         verbose,
     )

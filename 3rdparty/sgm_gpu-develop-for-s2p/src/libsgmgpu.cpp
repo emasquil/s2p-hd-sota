@@ -29,17 +29,20 @@ struct sgm_handle {
 
 extern "C" sgm_handle *make_sgm_gpu(int disp_size, int P1, int P2, float uniqueness,
                          int num_paths, int min_disp, int LR_max_diff,
-                         bool subpixel, bool verbose) {
+                         bool subpixel, int census_transform_size, bool verbose) {
   ASSERT_MSG(disp_size == 64 || disp_size == 128 || disp_size == 256 || disp_size == 512,
              "disparity size must be 64, 128 or 256.");
   ASSERT_MSG(num_paths == 4 || num_paths == 8,
              "number of scanlines must be 4 or 8.");
+  ASSERT_MSG(census_transform_size <= LAST_CENSUS_TRANSFORM_SIZE,
+             "census_transform_size should be between 0 and LAST_CENSUS_TRANSFORM_SIZE");
 
   const sgm::PathType path_type =
       num_paths == 8 ? sgm::PathType::SCAN_8PATH : sgm::PathType::SCAN_4PATH;
 
+  auto cts = static_cast<sgm::CensusTransformSize>(census_transform_size);
   const sgm::StereoSGM::Parameters params(
-      P1, P2, uniqueness, subpixel, path_type, min_disp, LR_max_diff, verbose);
+      P1, P2, uniqueness, subpixel, path_type, min_disp, LR_max_diff, cts, verbose);
 
   return new sgm_handle(params, disp_size);
 }

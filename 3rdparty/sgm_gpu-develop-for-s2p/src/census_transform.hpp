@@ -22,6 +22,14 @@ limitations under the License.
 
 namespace sgm {
 
+enum CensusTransformSize {
+    W5_H5 = 0,
+    W7_H5 = 1,
+    W7_H7 = 2,
+    W9_H7 = 3,
+};
+#define LAST_CENSUS_TRANSFORM_SIZE (::sgm::CensusTransformSize::W9_H7)
+
 template <typename T>
 class CensusTransform {
 
@@ -37,12 +45,13 @@ public:
 	const feature_type *get_output() const {
 		return m_feature_buffer.data();
 	}
-	
+
 	void enqueue(
 		const input_type *src,
 		int width,
 		int height,
 		int pitch,
+		CensusTransformSize size,
 		cudaStream_t stream);
 
 };

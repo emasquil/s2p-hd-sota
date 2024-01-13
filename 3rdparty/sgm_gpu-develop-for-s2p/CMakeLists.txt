@@ -5,7 +5,7 @@ project(libSGM_debug)
 set(CMAKE_FIND_PACKAGE_SORT_ORDER NATURAL)
 
 if (CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "-O3 -Wall")
+	set(CMAKE_CXX_FLAGS "-O3 -Wall -Werror=switch")
 endif()
 
 find_package(CUDA REQUIRED)

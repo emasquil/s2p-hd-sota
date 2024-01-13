@@ -21,13 +21,10 @@ namespace sgm {
 
 namespace {
 
-static constexpr int WINDOW_WIDTH  = 9;
-static constexpr int WINDOW_HEIGHT = 7;
-
 static constexpr int BLOCK_SIZE = 128;
 static constexpr int LINES_PER_BLOCK = 16;
 
-template <typename T>
+template <typename T, int WINDOW_WIDTH, int WINDOW_HEIGHT>
 __global__ void census_transform_kernel(
 	feature_type *dest,
 	const T *src,
@@ -103,7 +100,7 @@ __global__ void census_transform_kernel(
 	}
 }
 
-template <typename T>
+template <typename T, int WINDOW_WIDTH, int WINDOW_HEIGHT>
 void enqueue_census_transform(
 	feature_type *dest,
 	const T *src,
@@ -118,7 +115,7 @@ void enqueue_census_transform(
 		(width  + width_per_block  - 1) / width_per_block,
 		(height + height_per_block - 1) / height_per_block);
 	const dim3 bdim(BLOCK_SIZE);
-	census_transform_kernel<<<gdim, bdim, 0, stream>>>(dest, src, width, height, pitch);
+	census_transform_kernel<T, WINDOW_WIDTH, WINDOW_HEIGHT><<<gdim, bdim, 0, stream>>>(dest, src, width, height, pitch);
 }
 
 }
@@ -135,13 +132,26 @@ void CensusTransform<T>::enqueue(
 	int width,
 	int height,
 	int pitch,
+	CensusTransformSize size,
 	cudaStream_t stream)
 {
 	if(m_feature_buffer.size() != static_cast<size_t>(width * height)){
 		m_feature_buffer = DeviceBuffer<feature_type>(width * height);
 	}
-	enqueue_census_transform(
-		m_feature_buffer.data(), src, width, height, pitch, stream);
+	switch (size) {
+		case CensusTransformSize::W5_H5:
+			enqueue_census_transform<T, 5, 5>(m_feature_buffer.data(), src, width, height, pitch, stream);
+			break;
+		case CensusTransformSize::W7_H5:
+			enqueue_census_transform<T, 7, 5>(m_feature_buffer.data(), src, width, height, pitch, stream);
+			break;
+		case CensusTransformSize::W7_H7:
+			enqueue_census_transform<T, 7, 7>(m_feature_buffer.data(), src, width, height, pitch, stream);
+			break;
+		case CensusTransformSize::W9_H7:
+			enqueue_census_transform<T, 9, 7>(m_feature_buffer.data(), src, width, height, pitch, stream);
+			break;
+	}
 }
 
 template class CensusTransform<uint8_t>;

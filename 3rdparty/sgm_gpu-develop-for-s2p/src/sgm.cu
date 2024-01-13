@@ -57,11 +57,11 @@ public:
 
         std::chrono::steady_clock::time_point begin_census_transform_proc = std::chrono::steady_clock::now();
 		m_census_left.enqueue(
-			src_left, width, height, src_pitch, stream);
+			src_left, width, height, src_pitch, param.census_transform_size, stream);
         std::chrono::steady_clock::time_point end_census_transform_left = std::chrono::steady_clock::now();
         std::chrono::steady_clock::time_point begin_census_transform_right = std::chrono::steady_clock::now();
 		m_census_right.enqueue(
-			src_right, width, height, src_pitch, stream);
+			src_right, width, height, src_pitch, param.census_transform_size, stream);
         std::chrono::steady_clock::time_point end_census_transform_right = std::chrono::steady_clock::now();
 	if (param.verbose)
 		std::cout << "\t\tTime spent census transf left = " << std::chrono::duration_cast<std::chrono::microseconds>(end_census_transform_left - begin_census_transform_proc).count() << "[us]" << std::endl;

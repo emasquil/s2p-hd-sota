@@ -696,7 +696,7 @@ def main(user_cfg, start_from=0):
                               timeout=timeout)
         # some feedback
         for x, b in zip(tiles_pairs, tiles_usefulnesses):
-            if not b: print ('removed tile: ', x[1].dir)
+            if not b: logger.info('  removed tile: %s', x[1].dir)
 
         # update the tiles removing the discarded tiles
         tiles_pairs = [x for x, b in zip(tiles_pairs, tiles_usefulnesses) if b]

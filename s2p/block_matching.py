@@ -203,7 +203,9 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
 
 
     if algo == 'stereosgm_gpu':
-        nb_dir = cfg['mgm_nb_directions']
+        census_win = int(cfg['census_ncc_win'])
+        specklefilter_surface = int(cfg['stereo_speckle_filter'])
+        nb_dir = int(cfg['mgm_nb_directions'])
         # it is required that p2 > p1. The larger p1, p2, the smoother the disparity
         regularity_multiplier = cfg['stereo_regularity_multiplier']
         P1 = int(10*regularity_multiplier)   # penalizes disparity changes of 1 between neighbor pixels
@@ -214,6 +216,9 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         i1 = common.rio_read_as_array_with_nans(im1)
         i2 = common.rio_read_as_array_with_nans(im2)
 
+        # code of the census window for the sgm library
+        # 0: 5x5, 1: 7x5, 2: 7x7, 3: 9x7
+        census_code = 0 if census_win <=5 else 2 if census_win <=7 else 3
 
         # 2 scale disparity range estimation
         #  this doesnt really work perfectly
@@ -225,12 +230,12 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         # common.rasterio_write(disp+'o.tif', resulto)
         disp_min, disp_max, disp_med = np.nanquantile(resulto[20:-20,20:-20], [0.001, 0.999, 0.5])
 
-        result  = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2)
-        #resultR = stereosgm_gpu.run(i2, i1, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2)
+        result  = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2, census_transform_size=census_code)
+        #resultR = stereosgm_gpu.run(i2, i1, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2, census_transform_size=census_code)
         #result = leftright(result, resultR, maxdiff=1)
 
         # apply spekle filter
-        result = specklefilter(result,int(cfg['stereo_speckle_filter']),5)
+        result = specklefilter(result,specklefilter_surface, 5)
 
         result[0:2,:] = np.nan
         result[-3:-1,:] = np.nan

@@ -208,9 +208,6 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         nb_dir = int(cfg['mgm_nb_directions'])
         # it is required that p2 > p1. The larger p1, p2, the smoother the disparity
         regularity_multiplier = cfg['stereo_regularity_multiplier']
-        P1 = int(10*regularity_multiplier)   # penalizes disparity changes of 1 between neighbor pixels
-        P2 = int(40*regularity_multiplier)  # penalizes disparity changes of more than 1
-
 
         from s2p import stereosgm_gpu
         i1 = common.rio_read_as_array_with_nans(im1)
@@ -219,6 +216,11 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         # code of the census window for the sgm library
         # 0: 5x5, 1: 7x5, 2: 7x7, 3: 9x7
         census_code = 0 if census_win <=5 else 2 if census_win <=7 else 3
+
+        # adjust the regularizer strenght to the size of the census window
+        regularity_multiplier *= 0.4 if census_code == 0 else 0.55 if census_code == 1 else 0.77 if census_code == 2 else 1
+        P1 = int(10*regularity_multiplier)   # penalizes disparity changes of 1 between neighbor pixels
+        P2 = int(40*regularity_multiplier)  # penalizes disparity changes of more than 1
 
         # 2 scale disparity range estimation
         #  this doesnt really work perfectly

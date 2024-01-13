@@ -24,6 +24,7 @@ import os.path
 import json
 import multiprocessing
 import tempfile
+import logging
 from typing import List
 import multiprocessing
 
@@ -49,6 +50,9 @@ from s2p import config
 from s2p.tile import Tile
 
 
+logger = logging.getLogger(__name__)
+
+
 def pointing_correction(cfg, tile: Tile, i):
     """
     Compute the translation that corrects the pointing error on a pair of tiles.
@@ -65,7 +69,7 @@ def pointing_correction(cfg, tile: Tile, i):
     rpc2 = cfg['images'][i]['rpcm']
 
     # correct pointing error
-    print('correcting pointing on tile {} {} pair {}...'.format(x, y, i))
+    logger.info('correcting pointing on tile {} {} pair {}...'.format(x, y, i))
     method = 'relative' if cfg['relative_sift_match_thresh'] is True else 'absolute'
     A, m = pointing_accuracy.compute_correction(
         cfg, img1, img2, rpc1, rpc2, x, y, w, h, method,
@@ -120,7 +124,7 @@ def rectification_pair(cfg, tile: Tile, i: int) -> None:
     pointing = os.path.join(cfg['out_dir'],
                             'global_pointing_pair_{}.txt'.format(i))
 
-    print('rectifying tile {} {} pair {}...'.format(x, y, i))
+    logger.info('rectifying tile {} {} pair {}...'.format(x, y, i))
     try:
         A = np.loadtxt(os.path.join(out_dir, 'pointing.txt'))
     except IOError:
@@ -146,7 +150,7 @@ def rectification_pair(cfg, tile: Tile, i: int) -> None:
                 else:
                     m = np.concatenate((m, m_n))
             except IOError:
-                print('%s does not exist' % sift_from_neighborhood)
+                logger.warning('%s does not exist' % sift_from_neighborhood)
 
     rect1 = os.path.join(out_dir, 'rectified_ref.tif')
     rect2 = os.path.join(out_dir, 'rectified_sec.tif')
@@ -199,7 +203,7 @@ def disparity_range_check(cfg, tile: Tile, i: int):
 
     # TODO: reason about the disparity range of the current tile based on the range of neighboring tiles
     if disp_max - disp_min > 100:
-        print('checking tile {} {} pair {}... {} {}'.format(x, y, i, disp_min, disp_max))
+        logger.info('checking tile {} {} pair {}... {} {}'.format(x, y, i, disp_min, disp_max))
 
 
     for n in tile.neighborhood_dirs:
@@ -227,7 +231,7 @@ def stereo_matching(cfg, tile: Tile, i: int) -> None:
     out_dir = os.path.join(tile.dir, 'pair_{}'.format(i))
     x, y = tile.coordinates[:2]
 
-    print('estimating disparity on tile {} {} pair {}...'.format(x, y, i))
+    logger.info('estimating disparity on tile {} {} pair {}...'.format(x, y, i))
     rect1 = os.path.join(out_dir, 'rectified_ref.tif')
     rect2 = os.path.join(out_dir, 'rectified_sec.tif')
     disp = os.path.join(out_dir, 'rectified_disp.tif')
@@ -246,9 +250,7 @@ def stereo_matching(cfg, tile: Tile, i: int) -> None:
     except Exception as e:
         # in case of timeout we should take note
         # TODO: take note of the failed block matching
-        print('ERROR: block_matching.compute_disparity_map has failed to generate: ${disp}')
-        print ("Unexpected error:", e)
-
+        logger.error('block_matching.compute_disparity_map has failed to generate: ${disp}')
 
     if cfg['clean_intermediate']:
         if len(cfg['images']) > 2:
@@ -268,7 +270,7 @@ def disparity_to_height(cfg, tile: Tile, i: int) -> None:
     out_dir = os.path.join(tile.dir, 'pair_{}'.format(i))
     x, y, w, h = tile.coordinates
 
-    print('triangulating tile {} {} pair {}...'.format(x, y, i))
+    logger.info('triangulating tile {} {} pair {}...'.format(x, y, i))
     rpc1 = cfg['images'][0]['rpcm']
     rpc2 = cfg['images'][i]['rpcm']
     H_ref = np.loadtxt(os.path.join(out_dir, 'H_ref.txt'))
@@ -316,7 +318,7 @@ def disparity_to_ply(cfg, tile: Tile) -> None:
     rpc1 = cfg['images'][0]['rpcm']
     rpc2 = cfg['images'][1]['rpcm']
 
-    print('triangulating tile {} {}...'.format(x, y))
+    logger.info('triangulating tile {} {}...'.format(x, y))
     H_ref = os.path.join(out_dir, 'pair_1', 'H_ref.txt')
     H_sec = os.path.join(out_dir, 'pair_1', 'H_sec.txt')
     pointing = os.path.join(cfg['out_dir'], 'global_pointing_pair_1.txt')
@@ -330,7 +332,7 @@ def disparity_to_ply(cfg, tile: Tile) -> None:
     # first check if disp exists for this tile
     if os.path.exists(disp) is False:
         #TODO: take note of the missing tile and move to the next
-        print(f'ERROR: disparity_to_ply missing input file: {disp}')
+        logger.error(f'input file: {disp}')
         return
 
     # prepare the image needed to colorize point cloud
@@ -378,9 +380,7 @@ def disparity_to_ply(cfg, tile: Tile) -> None:
     # check result
     valid_out = np.sum(np.all(np.isfinite(xyz_array.reshape(-1, 3)), axis=1))
     if valid_out < valid_in//10:
-        print("WARNING triangulation.filter_xyz with params ", (r, n, cfg['gsd']), " has conserved only {} out of {}".format(valid_out, valid_in))
-        # TODO: do something to log this issue in a central log not in the distributed one...
-
+        logger.warning("triangulation.filter_xyz with params {} has conserved only {} out of {}".format((r, n, cfg['gsd']), valid_out, valid_in))
 
     proj_com = "CRS {}".format(cfg['out_crs'])
     triangulation.write_to_ply(ply_file, xyz_array, colors, proj_com, confidence=extra)
@@ -514,16 +514,16 @@ def plys_to_dsm(cfg, tile: Tile) -> None:
 
     in_ply = os.path.join(tile.dir, 'cloud.ply')
     # first check if ply exists (it might not exist because of a failed blockmatching)
-    if os.path.exists(in_ply) is False:
+    if not os.path.exists(in_ply):
         # TODO: take note of the missing part of the DSM
-        print('ERROR: plys_to_dsm missing input file: ${in_ply}')
+        logger.error(f'missing input file: {in_ply}')
         return
 
     # compute the point cloud x, y bounds
     points, _ = ply.read_3d_point_cloud_from_ply(in_ply)
     if len(points) == 0:
         # TODO: take note of the missing part of the DSM
-        print('ERROR: plys_to_dsm no points in file: ${in_ply}')
+        logger.error(f'plys_to_dsm no points in file: {in_ply}')
         return
 
     xmin, ymin, *_ = np.min(points, axis=0)
@@ -619,6 +619,15 @@ def main(user_cfg, start_from=0):
     """
     common.reset_elapsed_time()
 
+    # setup logger to stderr
+    # (loggers per tiles are set in parallel.py)
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    f = logging.Formatter('%(message)s')
+    h = logging.StreamHandler(sys.stderr)
+    h.setFormatter(f)
+    root.addHandler(h)
+
     # s2p is already using (processed-based) parallelism when needed
     os.environ['GDAL_NUM_THREADS'] = "1"
     os.environ['OMP_NUM_THREADS'] = "1"
@@ -639,7 +648,7 @@ def main(user_cfg, start_from=0):
     else: # skip mask creation if already done
         tiles = initialization.tiles_full_info(cfg, tw, th, tiles_txt, create_masks=False)
     if not tiles:
-        print('ERROR: the ROI is not seen in two images or is totally masked.')
+        logger.error('the ROI is not seen in two images or is totally masked.')
         sys.exit(1)
 
     if start_from > 0:
@@ -649,7 +658,8 @@ def main(user_cfg, start_from=0):
         # initialisation: write the list of tilewise json files to outdir/tiles.txt
         with open(tiles_txt, 'w') as f:
             for t in tiles:
-                print(t.json, file=f)
+                f.write(t.json)
+                f.write('\n')
 
     n = len(cfg['images'])
     tiles_pairs = [(cfg, t, i) for i in range(1, n) for t in tiles]
@@ -658,19 +668,19 @@ def main(user_cfg, start_from=0):
 
     # local-pointing step:
     if start_from <= 1:
-        print('1) correcting pointing locally...')
+        logger.info('1) correcting pointing locally...')
         parallel.launch_calls(cfg, pointing_correction, tiles_pairs, nb_workers,
                               timeout=timeout)
 
     # global-pointing step:
     if start_from <= 2:
-        print('2) correcting pointing globally...')
+        logger.info('2) correcting pointing globally...')
         global_pointing_correction(cfg, tiles)
         common.print_elapsed_time()
 
     # rectification step:
     if start_from <= 3:
-        print('3) rectifying tiles...')
+        logger.info('3) rectifying tiles...')
         successes = parallel.launch_calls(cfg, rectification_pair, tiles_pairs, nb_workers,
                               timeout=timeout)
 
@@ -679,7 +689,7 @@ def main(user_cfg, start_from=0):
 
     # disparity range reasoning step: (WIP)
     if start_from <= 4:
-        print('4) reason about the disparity ranges... (WIP)')
+        logger.info('4) reason about the disparity ranges... (WIP)')
         # extra step checking the disparity range
         # verity if the disparity range of a tile is not too different from its neighbors
         tiles_usefulnesses = parallel.launch_calls(cfg, disparity_range_check, tiles_pairs, nb_workers,
@@ -694,7 +704,7 @@ def main(user_cfg, start_from=0):
 
     # matching step:
     if start_from <= 4:
-        print('4) running stereo matching...')
+        logger.info('4) running stereo matching...')
         if cfg['max_processes_stereo_matching'] is not None:
             nb_workers_stereo = cfg['max_processes_stereo_matching']
         else:
@@ -705,35 +715,35 @@ def main(user_cfg, start_from=0):
     if start_from <= 5:
         if n > 2:
             # disparity-to-height step:
-            print('5a) computing height maps...')
+            logger.info('5a) computing height maps...')
             parallel.launch_calls(cfg, disparity_to_height, tiles_pairs, nb_workers,
                                   timeout=timeout)
 
-            print('5b) computing local pairwise height offsets...')
+            logger.info('5b) computing local pairwise height offsets...')
             parallel.launch_calls(cfg, mean_heights, tiles_with_cfg, nb_workers, timeout=timeout)
 
             # global-mean-heights step:
-            print('5c) computing global pairwise height offsets...')
+            logger.info('5c) computing global pairwise height offsets...')
             global_mean_heights(cfg, tiles)
 
             # heights-to-ply step:
-            print('5d) merging height maps and computing point clouds...')
+            logger.info('5d) merging height maps and computing point clouds...')
             parallel.launch_calls(cfg, heights_to_ply, tiles_with_cfg, nb_workers,
                                   timeout=timeout)
         else:
             # triangulation step:
-            print('5) triangulating tiles...')
+            logger.info('5) triangulating tiles...')
             parallel.launch_calls(cfg, disparity_to_ply, tiles_with_cfg, nb_workers,
                                   timeout=timeout)
 
     # local-dsm-rasterization step:
     if start_from <= 6:
-        print('6) computing DSM by tile...')
+        logger.info('6) computing DSM by tile...')
         parallel.launch_calls(cfg, plys_to_dsm, tiles_with_cfg, nb_workers, timeout=timeout)
 
     # global-dsm-rasterization step:
     if start_from <= 7:
-        print('7) computing global DSM...')
+        logger.info('7) computing global DSM...')
         global_dsm(cfg, tiles)
     common.print_elapsed_time()
     common.print_elapsed_time(since_first_call=True)

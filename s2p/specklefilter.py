@@ -4,18 +4,9 @@ speckle filter (remove small cc)
 Copyright (C) 2017-2018, Gabriele Facciolo <facciolo@cmla.ens-cachan.fr>
 """
 
-from __future__ import print_function
 import numpy as np
 
-# in case numba jit is not installed
-try:
-    from numba import jit
-except:
-    print('WARNING: numba package is not installed')
-    def jit(x):
-        return x
-
-    
+from numba import jit
 
 
 def specklefilter(off, area=25, th=0):

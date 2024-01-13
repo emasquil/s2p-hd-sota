@@ -4,6 +4,10 @@
 # Copyright (C) 2015, Julien Michel <julien.michel@cnes.fr>
 
 import numpy as np
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def fundamental_matrix_cameras(P1, P2):
@@ -86,16 +90,15 @@ def rectifying_similarities_from_affine_fundamental_matrix(F, debug=False):
 
     if debug:
         theta_1 = get_angle_from_cos_and_sin(d, c)
-        print("reference image:")
-        print("\trotation: %f deg" % np.rad2deg(theta_1))
-        print("\tzoom: %f" % z)
-        print("\tvertical translation: %f" % t)
-        print()
+        logger.info("reference image:")
+        logger.info("\trotation: %f deg" % np.rad2deg(theta_1))
+        logger.info("\tzoom: %f" % z)
+        logger.info("\tvertical translation: %f" % t)
         theta_2 = get_angle_from_cos_and_sin(-b, -a)
-        print("secondary image:")
-        print("\trotation: %f deg" % np.rad2deg(theta_2))
-        print("\tzoom: %f" % (1.0 / z))
-        print("\tvertical translation: %f" % -t)
+        logger.info("secondary image:")
+        logger.info("\trotation: %f deg" % np.rad2deg(theta_2))
+        logger.info("\tzoom: %f" % (1.0 / z))
+        logger.info("\tvertical translation: %f" % -t)
 
     # output similarities
     S1 = np.zeros((3, 3))
@@ -172,7 +175,7 @@ def affine_transformation(x, xx):
     """
     # check that there are at least 3 points
     if len(x) < 3:
-        print("ERROR: estimation.affine_transformation needs 3 correspondences")
+        logger.error("estimation.affine_transformation needs 3 correspondences")
         return np.eye(3)
 
     # translate the input points so that the centroid is at the origin.

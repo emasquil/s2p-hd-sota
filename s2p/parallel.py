@@ -3,10 +3,12 @@
 
 import os
 import sys
-import traceback
+import logging
 import multiprocessing
 
 from s2p import common
+
+logger = logging.getLogger(__name__)
 
 
 def show_progress(a):
@@ -30,25 +32,50 @@ def show_progress(a):
     sys.stdout.flush()
 
 
-def tilewise_wrapper(cfg, fun, *args, **kwargs):
-    """
-    """
-    if not cfg['debug']:  # redirect stdout and stderr to log file
-        f = open(kwargs['stdout'], 'a')
-        sys.stdout = f
-        sys.stderr = f
+def tilewise_wrapper(cfg, fun, *args, stdout: str, tile_label: str, **kwargs):
+    root = logging.getLogger()
+    prevhandlers = list(root.handlers)
+    prevfilters = list(root.filters)
+    for h in prevhandlers:
+        root.removeHandler(h)
+    for f in prevfilters:
+        root.removeFilter(f)
+
+    root.setLevel(logging.INFO)
+    f = logging.Formatter('%(asctime)s %(name)s.%(funcName)s %(levelname)-8s %(message)s')
+    h = logging.FileHandler(stdout)
+    h.setFormatter(f)
+    root.addHandler(h)
+
+    if cfg['debug']:
+        # if debug is true, then redirect everything to the stderr
+        h = logging.StreamHandler(sys.stderr)
+        f = logging.Formatter(f'{tile_label} | %(name)s.%(funcName)s | %(message)s')
+        h.setFormatter(f)
+        root.addHandler(h)
+    else:
+        # if debug is false, then redirect only the warning and errors messages
+        h = logging.StreamHandler(sys.stderr)
+        h.setLevel(logging.ERROR)
+        f = logging.Formatter(f'{tile_label} | %(name)s.%(funcName)s | %(message)s')
+        h.setFormatter(f)
+        root.addHandler(h)
 
     try:
         out = fun(*args)
     except Exception:
-        print("Exception in %s" % fun.__name__)
-        traceback.print_exc()
+        logging.exception("Exception in %s" % fun.__name__)
         raise
-
-    if not cfg['debug']:  # close logs
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-        f.close()
+    finally:
+        # restore the previous loggers
+        for h in list(root.handlers):
+            root.removeHandler(h)
+        for f in list(root.filters):
+            root.removeFilter(f)
+        for h in prevhandlers:
+            root.addHandler(h)
+        for f in prevfilters:
+            root.addFilter(f)
 
     return out
 
@@ -76,6 +103,15 @@ def launch_calls(cfg, fun, list_of_args, nb_workers, *extra_args, tilewise=True,
     show_progress.counter = 0
     show_progress.total = len(list_of_args)
 
+    def tile_label_from_dir(tile_dir: str) -> str:
+        """convert:
+               /path/to/output_s2p/tiles/row_0002145_height_715/col_0000000_width_667
+           to:
+               row_0002145_height_715/col_0000000_width_667
+        """
+        root = os.path.dirname(os.path.dirname(tile_dir))
+        return tile_dir.replace(root, '')
+
     if nb_workers != 1:
         # use a `spawn` strategy, because 'fork' is unsafe when threads are involved
         # and forkserver is only available on linux (and might also be unsafe anyway)
@@ -91,15 +127,20 @@ def launch_calls(cfg, fun, list_of_args, nb_workers, *extra_args, tilewise=True,
             args += extra_args
             if tilewise:
                 if type(x) == tuple:
+                    # we expect x = (cfg, tile_dictionary, ?)
+                    tile_dir = x[1].dir
+                    tile_label = tile_label_from_dir(tile_dir)
                     if len(x) == 3:  # we expect x = (cfg, tile_dictionary, pair_id)
-                        log = os.path.join(x[1].dir, 'pair_%d' % x[2], 'stdout.log')
-                    else:  # we expect x = (cfg, tile_dictionary)
-                        log = os.path.join(x[1].dir, 'stdout.log')
+                        tile_dir = os.path.join(tile_dir, 'pair_%d' % x[2])
+                        tile_label = os.path.join(tile_label, 'pair_%d' % x[2])
                 else:  # we expect x = tile_dictionary
-                    log = os.path.join(x.dir, 'stdout.log')
+                    tile_dir = x.dir
+                    tile_label = tile_label_from_dir(tile_dir)
+
+                log = os.path.join(tile_dir, 'stdout.log')
                 args = (cfg, fun,) + args
                 results.append(pool.apply_async(tilewise_wrapper, args=args,
-                                                kwds={'stdout': log},
+                                                kwds={'stdout': log, 'tile_label': tile_label},
                                                 callback=show_progress))
             else:
                 results.append(pool.apply_async(fun, args=args, callback=show_progress))
@@ -122,14 +163,19 @@ def launch_calls(cfg, fun, list_of_args, nb_workers, *extra_args, tilewise=True,
             args += extra_args
             if tilewise:
                 if type(x) == tuple:
+                    # we expect x = (cfg, tile_dictionary, ?)
+                    tile_dir = x[1].dir
+                    tile_label = tile_label_from_dir(tile_dir)
                     if len(x) == 3:  # we expect x = (cfg, tile_dictionary, pair_id)
-                        log = os.path.join(x[1].dir, 'pair_%d' % x[2], 'stdout.log')
-                    else:  # we expect x = (cfg, tile_dictionary)
-                        log = os.path.join(x[1].dir, 'stdout.log')
+                        tile_dir = os.path.join(tile_dir, 'pair_%d' % x[2])
+                        tile_label = os.path.join(tile_label, 'pair_%d' % x[2])
                 else:  # we expect x = tile_dictionary
-                    log = os.path.join(x.dir, 'stdout.log')
+                    tile_dir = x.dir
+                    tile_label = tile_label_from_dir(tile_dir)
+
+                log = os.path.join(tile_dir, 'stdout.log')
                 args = (cfg, fun,) + args
-                outputs.append(tilewise_wrapper(*args, stdout=log))
+                outputs.append(tilewise_wrapper(*args, stdout=log, tile_label=tile_label))
             else:
                 outputs.append(fun(*args))
 

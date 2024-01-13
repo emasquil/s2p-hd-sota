@@ -10,6 +10,7 @@ import rasterio
 from scipy import ndimage
 
 from s2p import common
+from s2p.specklefilter import specklefilter
 
 
 class MaxDisparityRangeError(Exception):
@@ -57,18 +58,18 @@ def leftright(offL, offR, maxdiff=1):
 
     Args:
         offL, offR: numpy arrays containing the Left and Right disparity maps
-        maxdiff: threshold for the uniqueness constraint  
+        maxdiff: threshold for the uniqueness constraint
 
     Returns:
-        numpy array containing the offL disparity map, 
-        where the rejected pixels are set to np.inf      
+        numpy array containing the offL disparity map,
+        where the rejected pixels are set to np.inf
     '''
     sh = offL.shape
     mnan = np.isnan(offL)
     X, Y = np.meshgrid(range(sh[1]), range(sh[0]))
     offLa = np.nan_to_num(offL,0)
     X = np.round(np.clip(X + offLa, 0, sh[1]-1)).astype(int)
-    m = (np.abs(offLa + offR[Y,X] ) > maxdiff ) 
+    m = (np.abs(offLa + offR[Y,X] ) > maxdiff )
     out = offL.copy()
     out[m] = np.nan
     out[mnan] = np.nan
@@ -215,38 +216,28 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
 
 
         # 2 scale disparity range estimation
-        #  this doesnt really work perfectly 
-        print (disp_min, disp_max)
+        #  this doesnt really work perfectly
         i1o = ndimage.zoom(np.nan_to_num(i1), .5, mode='reflect')
         i2o = ndimage.zoom(np.nan_to_num(i2), .5, mode='reflect')
-        dispmino = (disp_min + disp_max)//2 - 256 
-        print (dispmino)
+        dispmino = (disp_min + disp_max)//2 - 256
         resulto = stereosgm_gpu.run(i1o, i2o, nb_dir=nb_dir, disp_min=dispmino, P1=P1, P2=P2)
         # debug
         # common.rasterio_write(disp+'o.tif', resulto)
         disp_min, disp_max, disp_med = np.nanquantile(resulto[20:-20,20:-20], [0.001, 0.999, 0.5])
 
-        print (disp_min, disp_max, disp_med)
-       
-
         result  = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2)
         #resultR = stereosgm_gpu.run(i2, i1, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2)
         #result = leftright(result, resultR, maxdiff=1)
 
-        from s2p.specklefilter import specklefilter
+        # apply spekle filter
+        result = specklefilter(result,int(cfg['stereo_speckle_filter']),5)
 
-        # apply spekle filter 
-        result = specklefilter(result,int(cfg['stereo_speckle_filter']),5) 
-        
         result[0:2,:] = np.nan
         result[-3:-1,:] = np.nan
         result[:,0:2] = np.nan
         result[:,-1:-3] = np.nan
 
-
-
         common.rasterio_write(disp, result)
-        #common.rasterio_write(disp+'r.tif', resultR)
 
         create_rejection_mask(disp, im1, im2, mask)
 

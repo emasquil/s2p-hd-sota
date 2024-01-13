@@ -5,6 +5,7 @@
 
 import os
 import ctypes
+import logging
 import warnings
 
 import numpy as np
@@ -17,6 +18,8 @@ from s2p import estimation
 
 import cv2 as cv
 cv.setNumThreads(1)
+
+logger = logging.getLogger(__name__)
 
 # Locate sift4ctypes library and raise an ImportError if it can not be
 # found This call will raise an exception if library can not be found,
@@ -290,7 +293,7 @@ def matches_on_rpc_roi(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
             break
         thresh_dog /= 2.0
     else:
-        print("WARNING: sift.matches_on_rpc_roi: found no matches.")
+        logger.warning("found no matches")
         return None
     return matches
 
@@ -408,7 +411,7 @@ def matches_on_rpc_roi_cv(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
             sec_matched_kpts = np.float32([kp2[m[0].trainIdx].pt for m in good_matches])
 
             if ref_matched_kpts.shape[0] <4:
-                print("WARNING: sift.matches_on_rpc_roi_cv: found no matches.")
+                logger.warning("found no matches")
                 return None
 
             # Compute homography using RANSAC
@@ -436,7 +439,7 @@ def matches_on_rpc_roi_cv(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
             break
         thresh_dog /= 2.0
     else:
-        print("WARNING: sift.matches_on_rpc_roi_cv: found no matches.")
+        logging.warning("found no matches")
         return None
 
     if opencv_matcher:

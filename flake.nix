@@ -113,6 +113,7 @@
             ];
             pythonImportsCheck = ["ransac"];
           };
+        cudapackages = pkgs.cudaPackages_11_4;
       in {
         packages = rec {
           default = s2p;
@@ -120,7 +121,11 @@
             name = "sgm_gpu";
             version = "1.0.0";
             src = pkgs.lib.cleanSource ./3rdparty/sgm_gpu-develop-for-s2p;
-            nativeBuildInputs = with pkgs; [cudaPackages_11_4.cudatoolkit cmake opencv3 libtiff libjpeg libpng];
+            nativeBuildInputs = with pkgs; [cmake opencv3 libtiff libjpeg libpng cudapackages.cuda_nvcc cudapackages.cuda_cudart];
+            # build the target during install
+            # otherwise it gets built twice, I don't know why
+            dontBuild = true;
+            makeFlags = ["stereosgm"];
           };
           s2p-cuda = s2p.overrideAttrs (oldAttrs: {
             name = "s2p-hd-cuda";
@@ -184,9 +189,14 @@
             # and then: ./result | docker load
             name = "s2p-hd-cuda";
             tag = "latest";
-            contents = with pkgs; [s2p-cuda-fix fish];
+            created = "now";
+            contents = with pkgs; [s2p-cuda busybox fish gdal];
             config = {
-              Cmd = ["${s2p-cuda-fix}/bin/s2p"];
+              Cmd = ["${s2p-cuda}/bin/s2p"];
+              Env = [
+                # /usr/lib64 because the --gpus=all docker options puts things there
+                "LD_LIBRARY_PATH=${cudapackages.cudatoolkit.lib}/lib:/usr/lib64"
+              ];
             };
           };
         };

@@ -453,6 +453,11 @@ def tiles_full_info(cfg, tw, th, tiles_txt, create_masks=False) -> List[Tile]:
                         tile_cfg = json.load(f_config)
                         roi = tile_cfg['roi']
                         coords = roi['x'], roi['y'], roi['w'], roi['h']
-                        tiles.append(create_tile(cfg, coords, neighborhood_coords_dict))
+                        tile = create_tile(cfg, coords, neighborhood_coords_dict)
+                        tiles.append(tile)
 
+                    # check if the mask.tif is present; othewise create_masks should have been True
+                    if not os.path.exists( os.path.join (tile.dir, 'mask.tif' ) ):
+                        print ('ERROR: the tile masks (%s) must be initialized: use  --start_from 1' % os.path.join (tile.dir, 'mask.tif'))
+                        return None
     return tiles

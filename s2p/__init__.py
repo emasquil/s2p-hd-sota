@@ -634,7 +634,10 @@ def main(user_cfg, start_from=0):
 
     tw, th = initialization.adjust_tile_size(cfg)
     tiles_txt = os.path.join(cfg['out_dir'], 'tiles.txt')
-    tiles = initialization.tiles_full_info(cfg, tw, th, tiles_txt, create_masks=True)
+    if start_from <= 1:
+        tiles = initialization.tiles_full_info(cfg, tw, th, tiles_txt, create_masks=True)
+    else: # skip mask creation if already done
+        tiles = initialization.tiles_full_info(cfg, tw, th, tiles_txt, create_masks=False)
     if not tiles:
         print('ERROR: the ROI is not seen in two images or is totally masked.')
         sys.exit(1)

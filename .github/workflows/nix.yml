@@ -1,0 +1,10 @@
+on: [push, pull_request]
+
+jobs:
+  lints:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: DeterminateSystems/nix-installer-action@main
+      - run: env NIXPKGS_ALLOW_UNFREE=1 nix build --impure -L .#dockerImage

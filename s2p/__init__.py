@@ -684,6 +684,9 @@ def main(user_cfg, start_from=0):
         # verity if the disparity range of a tile is not too different from its neighbors
         tiles_usefulnesses = parallel.launch_calls(cfg, disparity_range_check, tiles_pairs, nb_workers,
                               timeout=timeout)
+        # some feedback
+        for x, b in zip(tiles_pairs, tiles_usefulnesses):
+            if not b: print ('removed tile: ', x[1].dir)
 
         # update the tiles removing the discarded tiles
         tiles_pairs = [x for x, b in zip(tiles_pairs, tiles_usefulnesses) if b]

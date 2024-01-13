@@ -382,7 +382,7 @@ def matches_on_rpc_roi_cv(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
     rpc_matches = rpc_utils.matches_from_rpc(cfg, rpc1, rpc2, x, y, w, h, 5)
     F = estimation.affine_fundamental_matrix(rpc_matches)
 
-    opencv_matcher = True
+    opencv_matcher = False
 
     # if less than 10 matches, lower thresh_dog. An alternative would be ASIFT
     thresh_dog = 0.0133
@@ -422,10 +422,10 @@ def matches_on_rpc_roi_cv(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
             # for the conversion between kp.octave and a scale
             to_scale = lambda o: (1. / (1 << o) if o >= 0 else float(1 << -o))
             p1 = np.asarray([
-                (kp.pt[1], kp.pt[0], to_scale(kp.octave & 255), kp.angle, *des)
+                (kp.pt[0], kp.pt[1], to_scale(kp.octave & 255), kp.angle, *des)
                 for kp, des in zip(kp1, des1)], dtype=np.float32)
             p2 = np.asarray([
-                (kp.pt[1], kp.pt[0], to_scale(kp.octave & 255), kp.angle, *des)
+                (kp.pt[0], kp.pt[1], to_scale(kp.octave & 255), kp.angle, *des)
                 for kp, des in zip(kp2, des2)], dtype=np.float32)
             good_matches = keypoints_match(p1, p2, method, sift_thresh, F,
                                       epipolar_threshold=epipolar_threshold,

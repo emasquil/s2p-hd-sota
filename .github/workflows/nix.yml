@@ -7,4 +7,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: DeterminateSystems/nix-installer-action@main
+      - uses: cachix/cachix-action@v14
+        with:
+          name: s2p
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
       - run: env NIXPKGS_ALLOW_UNFREE=1 nix build --impure -L .#dockerImage

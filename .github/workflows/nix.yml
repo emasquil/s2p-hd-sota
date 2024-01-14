@@ -12,3 +12,12 @@ jobs:
           name: s2p
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
       - run: env NIXPKGS_ALLOW_UNFREE=1 nix build --impure -L .#dockerImage
+      - uses: docker/login-action@v3
+        with:
+          registry: git.ipol.im
+          username: s2p
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - run: |
+          ./result | docker load
+          docker tag s2p-hd-cuda:latest git.ipol.im/s2p/s2p-hd-cuda:latest
+          docker push git.ipol.im/s2p/s2p-hd-cuda:latest

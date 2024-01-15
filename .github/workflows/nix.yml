@@ -1,7 +1,9 @@
+name: nix
+
 on: [push, pull_request]
 
 jobs:
-  lints:
+  nix:
     name: Build
     runs-on: ubuntu-latest
     steps:
@@ -19,5 +21,5 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }}
       - run: |
           ./result | docker load
-          docker tag s2p-hd-cuda:latest git.ipol.im/s2p/s2p-hd-cuda:latest
-          docker push git.ipol.im/s2p/s2p-hd-cuda:latest
+          docker tag s2p-hd-cuda:latest git.ipol.im/s2p/s2p-hd-cuda:$GITHUB_SHA
+          docker push git.ipol.im/s2p/s2p-hd-cuda:$GITHUB_SHA

@@ -72,15 +72,11 @@ class _BoundedGPUMemoryManager(GPUMemoryManager):
                 if self.counter.value >= tokens:
                     self.counter.value -= tokens
                     break
-            logging.info(f"waiting for {tokens} tokens (total {self.num_tokens})")
             time.sleep(0.1)
 
         try:
-            logging.info(f"we got the tokens, lets work")
             yield
-            logging.info(f"we worked, lets release the tokens")
         finally:
-            logging.info(f"releasing {tokens} tokens")
             with self.counter.get_lock():
                 self.counter.value += tokens
 

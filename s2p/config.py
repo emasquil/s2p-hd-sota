@@ -42,7 +42,16 @@ def get_default_config() -> dict:
 
     # max number of processes launched in parallel for stereo_matching
     # Uses the value of cfg['max_processes'] if None
+    #   If the GPU has little VRAM, reduce this value so that CUDA contexts (per cpu)
+    #   do not fill the VRAM for nothing.
+    # It should be set if 'gpu_total_memory' is not set.
     cfg['max_processes_stereo_matching'] = None
+
+    # total GPU memory allowed for this instance of s2p, in MB (eg: 32000 for 32GB GPU)
+    # There is no mechanism to restrict s2p to this quantity, but the code will use this value
+    # to schedule a reasonnable number of jobs on the GPU in parallel.
+    # It should be set if 'max_processes_stereo_matching' is not set.
+    cfg['gpu_total_memory'] = None
 
     # max number of OMP threads used by programs compiled with openMP
     cfg['omp_num_threads'] = 1

@@ -10,6 +10,7 @@ import rasterio
 from scipy import ndimage
 
 from s2p import common
+from s2p.gpu_memory_manager import GPUMemoryManager
 from s2p.specklefilter import specklefilter
 
 
@@ -82,7 +83,9 @@ def leftright(offL, offR, maxdiff=1):
 
 def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
                           disp_max=None, timeout=600, max_disp_range=None,
-                          extra_params=''):
+                          extra_params='',
+                          *,
+                          gpu_mem_manager: GPUMemoryManager):
     """
     Runs a block-matching binary on a pair of stereo-rectified images.
 
@@ -213,6 +216,8 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         i1 = common.rio_read_as_array_with_nans(im1)
         i2 = common.rio_read_as_array_with_nans(im2)
 
+        vram_required = np.prod(np.max([i1.shape, i2.shape], axis=0)) * 514 * 8 / 1024 / 1024
+
         # code of the census window for the sgm library
         # 0: 5x5, 1: 7x5, 2: 7x7, 3: 9x7
         census_code = 0 if census_win <=5 else 2 if census_win <=7 else 3
@@ -227,12 +232,15 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         i1o = ndimage.zoom(np.nan_to_num(i1), .5, mode='reflect')
         i2o = ndimage.zoom(np.nan_to_num(i2), .5, mode='reflect')
         dispmino = (disp_min + disp_max)//2 - 256
-        resulto = stereosgm_gpu.run(i1o, i2o, nb_dir=nb_dir, disp_min=dispmino, P1=P1, P2=P2)
-        # debug
-        # common.rasterio_write(disp+'o.tif', resulto)
-        disp_min, disp_max, disp_med = np.nanquantile(resulto[20:-20,20:-20], [0.001, 0.999, 0.5])
 
-        result  = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2, census_transform_size=census_code)
+        with gpu_mem_manager.request(vram_required):
+            resulto = stereosgm_gpu.run(i1o, i2o, nb_dir=nb_dir, disp_min=dispmino, P1=P1, P2=P2)
+            # debug
+            # common.rasterio_write(disp+'o.tif', resulto)
+            disp_min, disp_max, disp_med = np.nanquantile(resulto[20:-20,20:-20], [0.001, 0.999, 0.5])
+
+            result  = stereosgm_gpu.run(i1, i2, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2, census_transform_size=census_code)
+
         #resultR = stereosgm_gpu.run(i2, i1, nb_dir=nb_dir, disp_min=int( -disp_med*2)-256,P1=P1, P2=P2, census_transform_size=census_code)
         #result = leftright(result, resultR, maxdiff=1)
 

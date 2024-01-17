@@ -5,8 +5,10 @@ import os
 import sys
 import logging
 import multiprocessing
+import multiprocessing.context
 
 from s2p import common
+from s2p.gpu_memory_manager import GPUMemoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,43 @@ def show_progress(a):
     sys.stdout.flush()
 
 
+# this is biggest hack ever, because python's multiprocessing.Value cannot be passed to Pool.apply_async
+# so we use the initializer/initargs mechanism, and patch the arguments in tilewise_wrapper
+substituted_args = []
+INIT_ARG_SENTINEL = 'INIT_ARG_SENTINEL'
+
+
+def expand_initargs(*initargs):
+    global substituted_args
+    substituted_args = initargs
+
+
+def remap_extra_args(extra_args):
+    out_args = []
+    init_args = []
+    for a in extra_args:
+        if isinstance(a, GPUMemoryManager):
+            out_args.append(INIT_ARG_SENTINEL)
+            init_args.append(a)
+        else:
+            out_args.append(a)
+    return tuple(out_args), init_args
+
+
+def undo_remap_extra_args(extra_args):
+    out_args = []
+    subargs = iter(substituted_args)
+    for a in extra_args:
+        if a == INIT_ARG_SENTINEL:
+            out_args.append(next(subargs))
+        else:
+            out_args.append(a)
+    return out_args
+
+
 def tilewise_wrapper(cfg, fun, *args, stdout: str, tile_label: str, **kwargs):
+    args = undo_remap_extra_args(args)
+
     root = logging.getLogger()
     prevhandlers = list(root.handlers)
     prevfilters = list(root.filters)
@@ -80,6 +118,12 @@ def tilewise_wrapper(cfg, fun, *args, stdout: str, tile_label: str, **kwargs):
     return out
 
 
+def get_mp_context() -> multiprocessing.context.BaseContext:
+        # use a `spawn` strategy, because 'fork' is unsafe when threads are involved
+        # and forkserver is only available on linux (and might also be unsafe anyway)
+    return multiprocessing.get_context("spawn")
+
+
 def launch_calls(cfg, fun, list_of_args, nb_workers, *extra_args, tilewise=True,
                  timeout=600):
     """
@@ -103,6 +147,11 @@ def launch_calls(cfg, fun, list_of_args, nb_workers, *extra_args, tilewise=True,
     show_progress.counter = 0
     show_progress.total = len(list_of_args)
 
+    extra_args, init_args = remap_extra_args(extra_args)
+    if init_args:
+        # the init_args hack only work when calling tilewise_wrapper
+        assert tilewise
+
     def tile_label_from_dir(tile_dir: str) -> str:
         """convert:
                /path/to/output_s2p/tiles/row_0002145_height_715/col_0000000_width_667
@@ -113,10 +162,7 @@ def launch_calls(cfg, fun, list_of_args, nb_workers, *extra_args, tilewise=True,
         return tile_dir.replace(root, '')
 
     if nb_workers != 1:
-        # use a `spawn` strategy, because 'fork' is unsafe when threads are involved
-        # and forkserver is only available on linux (and might also be unsafe anyway)
-        mp_context = multiprocessing.get_context("spawn")
-        pool = mp_context.Pool(nb_workers)
+        pool = get_mp_context().Pool(nb_workers, initializer=expand_initargs, initargs=init_args)
 
         for x in list_of_args:
             args = tuple()

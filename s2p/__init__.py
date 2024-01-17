@@ -48,6 +48,7 @@ from s2p import fusion
 from s2p import visualisation
 from s2p import config
 from s2p.tile import Tile
+from .gpu_memory_manager import GPUMemoryManager
 
 
 logger = logging.getLogger(__name__)
@@ -220,7 +221,7 @@ def disparity_range_check(cfg, tile: Tile, i: int):
         return True
 
 
-def stereo_matching(cfg, tile: Tile, i: int) -> None:
+def stereo_matching(cfg, tile: Tile, i: int, gpu_mem_manager: GPUMemoryManager) -> None:
     """
     Compute the disparity of a pair of images on a given tile.
 
@@ -243,14 +244,15 @@ def stereo_matching(cfg, tile: Tile, i: int) -> None:
         block_matching.compute_disparity_map(cfg, rect1, rect2, disp, mask,
                                              cfg['matching_algorithm'], disp_min,
                                              disp_max, timeout=cfg['mgm_timeout'],
-                                             max_disp_range=cfg['max_disp_range'])
+                                             max_disp_range=cfg['max_disp_range'],
+                                             gpu_mem_manager=gpu_mem_manager)
 
         # add margin around masked pixels
         masking.erosion(mask, mask, cfg['msk_erosion'])
-    except Exception as e:
+    except Exception:
         # in case of timeout we should take note
         # TODO: take note of the failed block matching
-        logger.error('block_matching.compute_disparity_map has failed to generate: ${disp}')
+        logger.exception('block_matching.compute_disparity_map has failed:')
 
     if cfg['clean_intermediate']:
         if len(cfg['images']) > 2:
@@ -637,9 +639,7 @@ def main(user_cfg, start_from=0):
     initialization.make_dirs(cfg)
 
     # multiprocessing setup
-    nb_workers = multiprocessing.cpu_count()  # nb of available cores
-    if cfg['max_processes'] is not None:
-        nb_workers = cfg['max_processes']
+    nb_workers = cfg['max_processes'] or multiprocessing.cpu_count()  # nb of available cores
 
     tw, th = initialization.adjust_tile_size(cfg)
     tiles_txt = os.path.join(cfg['out_dir'], 'tiles.txt')
@@ -709,7 +709,21 @@ def main(user_cfg, start_from=0):
             nb_workers_stereo = cfg['max_processes_stereo_matching']
         else:
             nb_workers_stereo = nb_workers
-        parallel.launch_calls(cfg, stereo_matching, tiles_pairs, nb_workers_stereo,
+
+        if cfg["gpu_total_memory"] is not None:
+            gpu_total_memory = cfg["gpu_total_memory"]
+            # keep some space for the CUDA contexts
+            gpu_total_memory -= nb_workers_stereo * 120
+            gpu_mem_manager = GPUMemoryManager.make_bounded(
+                max_memory_in_megabytes=gpu_total_memory,
+                mp_context=parallel.get_mp_context(),
+            )
+        else:
+            gpu_mem_manager = GPUMemoryManager.make_unbounded()
+
+        parallel.launch_calls(cfg, stereo_matching, tiles_pairs,
+                              nb_workers_stereo,
+                              gpu_mem_manager,
                               timeout=timeout)
 
     if start_from <= 5:

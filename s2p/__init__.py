@@ -563,6 +563,51 @@ def plys_to_dsm(cfg, tile: Tile) -> None:
         common.rasterio_write(out_conf, raster[:, :, 4], profile=profile)
 
 
+
+def dsm_filter(cfg, tile: Tile) -> None:
+    """
+    fill the small gaps in the dsm
+
+    Args:
+        tile: a dictionary that provides all you need to process a tile
+    """
+    in_dsm = os.path.join(tile.dir, 'dsm.tif')
+    out_dsm = os.path.join(tile.dir, 'dsm-filtered.tif')
+    maxsize = cfg['fill_dsm_holes_smaller_than']
+
+    import shutil
+
+
+    def descending_neumann_interpolation(x, maxsize=300): 
+        """ interpolate the nan values of an image """ 
+        import s2p.demtk 
+        from s2p.specklefilter import specklefilter
+        # compute the mask where the interpolation will not be applied 
+        z = np.isnan(x.squeeze()).astype(float) 
+        z[z==0]=np.nan 
+        masked_nans = specklefilter(z,maxsize,0)
+
+        # apply the interpolation after removing the masked areas 
+        x[masked_nans==1]=-1000 
+        out = demtk.descending_neumann_interpolation(x) 
+        out[masked_nans==1]=np.nan
+        return out 
+
+
+    # first check if ply exists (it might not exist because of a failed blockmatching)
+    if not os.path.exists(in_dsm):
+        # TODO: take note of the missing part of the DSM
+        logger.error(f'missing input file: {in_dsm}')
+        return
+
+    x = common.rio_read_as_array_with_nans(in_dsm)
+    xx = descending_neumann_interpolation(x, maxsize)
+    # update the output file content without altering the geotiff metadata
+    shutil.copy(in_dsm, out_dsm)  # copy an input file to get the metadata
+    with rasterio.open(out_dsm, 'r+') as f:
+            f.write(np.asarray([xx]).astype('float32'))  
+
+
 def global_dsm(cfg, tiles: List[Tile]) -> None:
     """
     Merge tilewise DSMs and confidence maps in a global DSM and confidence map.
@@ -581,12 +626,17 @@ def global_dsm(cfg, tiles: List[Tile]) -> None:
                         "predictor": 2}
 
     dsms = []
+    dsms_filtered = []
     confidence_maps = []
 
     for t in tiles:
         d = os.path.join(t.dir, "dsm.tif")
         if os.path.exists(d):
             dsms.append(d)
+
+        f = os.path.join(t.dir, "dsm-filtered.tif")
+        if os.path.exists(f):
+            dsms_filtered.append(f)
 
         c = os.path.join(t.dir, "confidence.tif")
         if os.path.exists(c):
@@ -599,6 +649,15 @@ def global_dsm(cfg, tiles: List[Tile]) -> None:
                              nodata=np.nan,
                              indexes=[1],
                              dst_path=os.path.join(cfg["out_dir"], "dsm.tif"),
+                             dst_kwds=creation_options)
+
+    if dsms_filtered:
+        rasterio.merge.merge(dsms_filtered,
+                             bounds=bounds,
+                             res=cfg["dsm_resolution"],
+                             nodata=np.nan,
+                             indexes=[1],
+                             dst_path=os.path.join(cfg["out_dir"], "dsm-filtered.tif"),
                              dst_kwds=creation_options)
 
     if confidence_maps:
@@ -754,6 +813,13 @@ def main(user_cfg, start_from=0):
     if start_from <= 6:
         logger.info('6) computing DSM by tile...')
         parallel.launch_calls(cfg, plys_to_dsm, tiles_with_cfg, nb_workers, timeout=timeout)
+
+    # local-dsm-rasterization step:
+    if start_from <= 7:
+        print(cfg['fill_dsm_holes_smaller_than'])
+        if cfg['fill_dsm_holes_smaller_than'] > 0: # skip this step
+            logger.info('7) filter DSM by tile...')
+            parallel.launch_calls(cfg, dsm_filter, tiles_with_cfg, nb_workers, timeout=timeout)
 
     # global-dsm-rasterization step:
     if start_from <= 7:

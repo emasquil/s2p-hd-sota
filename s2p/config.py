@@ -185,6 +185,10 @@ def get_default_config() -> dict:
     # clean height maps outliers
     cfg['cargarse_basura'] = True
 
+    # computes a filtered DSM by filtering small holes
+    # generates a  dsm-filtered.tif next to the usual dsm.tif
+    cfg['fill_dsm_holes_smaller_than'] = 50
+
     # Output coordinate reference system
     # All formats accepted by `pyproj.CRS()` are allowed, for example:
     # 32740 (int interpreted as an EPSG code), or

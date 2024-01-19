@@ -394,45 +394,47 @@ def matches_on_rpc_roi_cv(cfg, im1, im2, rpc1, rpc2, x, y, w, h,
         kp1, des1 = image_keypoints_cv(im1, x, y, w, h, thresh_dog=thresh_dog)
         kp2, des2 = image_keypoints_cv(im2, x2, y2, w2, h2, thresh_dog=thresh_dog)
 
-        if opencv_matcher:
-            # BFMatcher with default params
-            bf = cv.BFMatcher()
-            matches = bf.knnMatch(des1, des2, k=2)
+        good_matches = []
 
-            # Apply ratio test manually
-            good_matches = []
-            for m,n in matches:
-                if m.distance < 0.8*n.distance:
-                    good_matches.append([m])
-            #good_matches = matches
+        if len(kp1) >= 10 and len(kp2) >= 10:
+            if opencv_matcher:
+                # BFMatcher with default params
+                bf = cv.BFMatcher()
+                matches = bf.knnMatch(des1, des2, k=2)
 
-            # Select good matched keypoints
-            ref_matched_kpts = np.float32([kp1[m[0].queryIdx].pt for m in good_matches])
-            sec_matched_kpts = np.float32([kp2[m[0].trainIdx].pt for m in good_matches])
+                # Apply ratio test manually
+                for m,n in matches:
+                    if m.distance < 0.8*n.distance:
+                        good_matches.append([m])
+                #good_matches = matches
 
-            if ref_matched_kpts.shape[0] <4:
-                logger.warning("found no matches")
-                return None
+                # Select good matched keypoints
+                ref_matched_kpts = np.float32([kp1[m[0].queryIdx].pt for m in good_matches])
+                sec_matched_kpts = np.float32([kp2[m[0].trainIdx].pt for m in good_matches])
 
-            # Compute homography using RANSAC
-            H, mask = cv.findHomography(sec_matched_kpts, ref_matched_kpts, cv.RANSAC, 5.0)
+                if ref_matched_kpts.shape[0] <4:
+                    logger.warning("found no matches")
+                    return None
 
-            # filter the good_matchs inconsistent with the homography
-            good_matches = [good_matches[i] for i in np.where(mask.squeeze())[0]]
+                # Compute homography using RANSAC
+                H, mask = cv.findHomography(sec_matched_kpts, ref_matched_kpts, cv.RANSAC, 5.0)
 
-        else:
-            # see https://github.com/opencv/opencv/issues/4554
-            # for the conversion between kp.octave and a scale
-            to_scale = lambda o: (1. / (1 << o) if o >= 0 else float(1 << -o))
-            p1 = np.asarray([
-                (kp.pt[0], kp.pt[1], to_scale(kp.octave & 255), kp.angle, *des)
-                for kp, des in zip(kp1, des1)], dtype=np.float32)
-            p2 = np.asarray([
-                (kp.pt[0], kp.pt[1], to_scale(kp.octave & 255), kp.angle, *des)
-                for kp, des in zip(kp2, des2)], dtype=np.float32)
-            good_matches = keypoints_match(p1, p2, method, sift_thresh, F,
-                                      epipolar_threshold=epipolar_threshold,
-                                      model='fundamental')
+                # filter the good_matchs inconsistent with the homography
+                good_matches = [good_matches[i] for i in np.where(mask.squeeze())[0]]
+
+            else:
+                # see https://github.com/opencv/opencv/issues/4554
+                # for the conversion between kp.octave and a scale
+                to_scale = lambda o: (1. / (1 << o) if o >= 0 else float(1 << -o))
+                p1 = np.asarray([
+                    (kp.pt[0], kp.pt[1], to_scale(kp.octave & 255), kp.angle, *des)
+                    for kp, des in zip(kp1, des1)], dtype=np.float32)
+                p2 = np.asarray([
+                    (kp.pt[0], kp.pt[1], to_scale(kp.octave & 255), kp.angle, *des)
+                    for kp, des in zip(kp2, des2)], dtype=np.float32)
+                good_matches = keypoints_match(p1, p2, method, sift_thresh, F,
+                                          epipolar_threshold=epipolar_threshold,
+                                          model='fundamental')
 
 
         if len(good_matches) > 10 :

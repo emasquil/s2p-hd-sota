@@ -192,34 +192,22 @@
           name = "proj_data";
           dontUnpack = true;
           installPhase = ''
-            export PROJ_CURL_CA_BUNDLE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
-            ${pkgs.proj}/bin/projsync --verbose --no-version-filtering --file us_nga_egm96_15 --target-dir $out
-            rm $out/files.geojson $out/cache.db
+            mkdir $out
+            cp ${pkgs.fetchurl {
+              url = "https://github.com/OSGeo/PROJ-data/raw/a810a6d00ef4e16186e5db9abebb05ca14f2155d/us_nga/us_nga_egm96_15.tif";
+              hash = "sha256-20kwJ1YsmwBNciD6iB9WA62tpOHFApuTP6feRUew540=";
+            }} $out/us_nga_egm96_15.tif
             cp -ra ${pkgs.proj}/share/proj/* $out
           '';
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-9kNzkR0uYNkVYoXPggKpcGNzyCpLwgx2vh3bNK8mVxo=";
+          outputHash = "sha256-oIzXf3ToEZpc01SPIk9Fe+Vuec2OixfQBoUx6v2yCxE=";
         };
-        srtm4_cache_for_tests = pkgs.stdenv.mkDerivation {
-          name = "srtm4_cache_for_tests";
-          dontUnpack = true;
-          installPhase = ''
-            export SRTM4_CACHE=$out
-            # query points of interest for running s2p-s tests
-            $python/bin/python3 -c 'import srtm4; srtm4.srtm4(55.6, -21.2)'
-            rm -f $out/*.lock
-          '';
-          python = pkgs.python311.withPackages (ps:
-            with ps; [
-              requests
-              filelock
-              numpy
-              srtm4
-            ]);
-          outputHashAlgo = "sha256";
-          outputHashMode = "recursive";
-          outputHash = "sha256-bp/f1eSzDw91xb4RkmtFSiWUHTZ95dmfBJQ48HI1c4w=";
+        srtm4_cache_for_tests = pkgs.fetchzip {
+          # tile required to run s2p tests
+          url = "https://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/srtm_48_17.zip";
+          hash = "sha256-bNGQ78uonydHXgNkoMkR/sb7RsiwMf1J1dzzXBvmZ48=";
+          stripRoot = false;
         };
       in {
         packages = rec {

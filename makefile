@@ -140,6 +140,7 @@ depend:
 clean: clean_homography clean_sift clean_imscript \
        clean_msmw2 clean_msmw3 clean_tvl1 clean_sgbm clean_mgm clean_mgm_multi\
        clean_s2p
+	$(RM) -r bin/build_sgm_gpu
 	$(RM) c/*.o bin/* lib/*
 	$(RM) -r s2p_tmp
 

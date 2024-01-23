@@ -492,10 +492,13 @@ def heights_to_ply(cfg, tile: Tile) -> None:
                                                 out_crs)
 
     # 3D filtering
-    r = cfg['3d_filtering_r']
-    n = cfg['3d_filtering_n']
-    if r and n:
+    gsd_radius = cfg['3d_filtering_radius_gsd']
+    fillfactor = cfg['3d_filtering_fill_factor']
+    if gsd_radius  and  fillfactor:
+        r = gsd_radius * cfg['gsd']    # compute radius in meters
+        n = int(fillfactor * 2*3.14*gsd_radius**2)  # fraction of the disk 
         triangulation.filter_xyz(xyz_array, r, n, cfg['gsd'])
+
 
     proj_com = "CRS {}".format(cfg['out_crs'])
     triangulation.write_to_ply(plyfile, xyz_array, colors, proj_com)

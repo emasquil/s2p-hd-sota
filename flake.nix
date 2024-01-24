@@ -134,7 +134,7 @@
             src = pkgs.fetchFromGitHub {
               owner = "centreborelli";
               repo = "srtm4";
-              rev = "c68fa34b92191047748cb79102a9b2cf404cc213";
+              rev = "458e4015225a7eac76eb36ddae748617df291b24";
               sha256 = "sha256-qp/bQqkGLJ4snb/hT+ozUvM5yML7iqhsIDyVw5S8S5g=";
             };
             propagatedBuildInputs = with pkgs; [

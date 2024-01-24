@@ -308,7 +308,7 @@
               Cmd = ["${s2p-cuda}/bin/s2p"];
               Env = [
                 # /usr/lib64 because the --gpus=all docker options puts things there
-                "LD_LIBRARY_PATH=${cudapackages.cuda_cudart}/lib:/usr/lib64"
+                "LD_LIBRARY_PATH=/usr/lib64:${cudapackages.cuda_cudart}/lib"
                 "PROJ_DATA=${proj_data}"
               ];
             };

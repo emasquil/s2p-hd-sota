@@ -88,6 +88,11 @@
                         proj = pkgs.proj;
                         projdev = pkgs.proj.dev;
                       })
+                      # from nixpkgs upstream:
+                      (pkgs.fetchpatch {
+                        url = "https://github.com/pyproj4/pyproj/commit/3f7c7e5bcec33d9b2f37ceb03c484ea318dff3ce.patch";
+                        hash = "sha256-0J8AlInuhFDAYIBJAJ00XbqIanJY/D8xPVwlOapmLDE=";
+                      })
                     ];
                   });
                 };
@@ -122,6 +127,7 @@
               plyfile
               affine
               pyproj
+              setuptools
             ];
             pythonImportsCheck = ["plyflatten"];
           };
@@ -147,6 +153,7 @@
                   affine
                   pyproj
                   rasterio
+                  setuptools
                 ]
               )
             ];
@@ -201,7 +208,8 @@
           '';
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-oIzXf3ToEZpc01SPIk9Fe+Vuec2OixfQBoUx6v2yCxE=";
+          # NOTE: update this hash when bumping nixpkgs/proj version
+          outputHash = "sha256-wIwdjOz80BHv0I0E83szpIcgzkw6stVMPOSkTBnaACc=";
         };
         srtm4_cache_for_tests = pkgs.fetchzip {
           # tile required to run s2p tests

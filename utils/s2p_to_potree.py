@@ -73,7 +73,9 @@ def plys_to_potree(input_plys, output, bin_dir='.', cloud_name="cloud"):
     # Run PotreeConverter
     common.run("mkdir -p %s" % output)
     resourcedir = os.path.join(bin_dir, 'PotreeConverter/PotreeConverter/resources/page_template')
-    common.run("LC_ALL=C %s --list-of-files %s -o %s -p %s --edl-enabled --material RGB --overwrite --page-template %s" % (PotreeConverter, listfile, output, cloud_name, resourcedir))
+    newenv = os.environ
+    newenv['LC_ALL'] = "C"
+    common.run("%s --list-of-files %s -o %s -p %s --edl-enabled --material RGB --overwrite --page-template %s" % (PotreeConverter, listfile, output, cloud_name, resourcedir), env=newenv)
 
     # Cleanup
     os.remove(listfile)

@@ -395,7 +395,11 @@ def disparity_to_ply(cfg, tile: Tile) -> None:
         logger.warning("triangulation.filter_xyz with params {} has conserved only {} out of {}".format((r, n, cfg['gsd']), valid_out, valid_in))
 
     proj_com = "CRS {}".format(cfg['out_crs'])
-    triangulation.write_to_ply(ply_file, xyz_array, colors, proj_com, confidence=extra)
+    try:
+        triangulation.write_to_ply(ply_file, xyz_array, colors, proj_com, confidence=extra)
+    except Exception:
+        logger.error('triangulation.write_to_ply has failed: tile: {} {}'.format(*tile.coordinates[0:2]))
+
 
     if cfg['clean_intermediate']:
         common.remove(H_ref)
@@ -612,6 +616,8 @@ def global_dsm(cfg, tiles: List[Tile]) -> None:
                         "blockxsize": 256,
                         "blockysize": 256,
                         "compress": "deflate",
+                        "BIGTIFF": "IF_SAFER",
+                        "COPY_SRC_OVERVIEWS": "YES",
                         "predictor": 2}
 
     dsms = []
@@ -776,6 +782,10 @@ def main(user_cfg, start_from=0):
                               nb_workers_stereo,
                               gpu_mem_manager,
                               timeout=timeout)
+
+    ### UPATE TILES_WITH_CFG FROM CURRENT TILES_PAIRS
+    tilesdict = dict( [(t.json,t) for _,t,_ in tiles_pairs] )
+    tiles_with_cfg = [(cfg,t) for t in tilesdict.values()]
 
     if start_from <= 5:
         if n > 2:

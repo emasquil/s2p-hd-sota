@@ -21,6 +21,8 @@ void minfilter(struct Img &disp, struct Img &corr, int w);
 
 void mindiff(struct Img &disp, struct Img &corr, int w, float tau=1.0);
 
+void compute_right_disparity_range_from_left(struct Img dminI, struct Img dmaxI, struct Img &dminRI,  struct Img &dmaxRI, int dmin, int dmax);
+
 //#include "remove_small_cc.c"
 int remove_small_cc(int w, int h, float *in, float *out, int minarea, float intensity_threshold);
 

@@ -124,6 +124,44 @@ void mindiff(struct Img &disp, struct Img &corr, int w, float tau=1.0)
 }
 
 
+void compute_right_disparity_range_from_left(struct Img dminI, struct Img dmaxI, struct Img &dminRI,  struct Img &dmaxRI, int dmin, int dmax)
+// takes disparity range for the left image given by the images  dminI, dmaxI, 
+// and computes the corresponding disparity range for the right image (dminRI,dmaxRI) images must be pre-allocated.
+// dmin and dmax indicate the default disparity range in the left image
+{
+    int nc = dminI.ncol;
+    int nr = dminI.nrow;
+    int Rnc = dminRI.ncol;
+    int Rnr = dminRI.nrow;
+    int Rnpix = dminRI.npix;
+
+
+    // if the left disparity range file is provided, compute the right disparity range else use dmin dmax 
+    for(int i = 0; i < Rnpix; i++) {dminRI[i] = INFINITY; dmaxRI[i] = -INFINITY;}
+
+    for (int j = 0; j < nr; j++) {
+    	for (int i = 0; i < nc; i++) {
+            int idx = i + j*nc; 
+            if (std::isfinite(dminI[idx]) && std::isfinite(dmaxI[idx])) {
+                for ( int k = std::floor(dminI[idx]); k <= std::ceil(dmaxI[idx]); k++) {
+                    if ((i+k)>=0 && (i+k)<Rnc) {
+                        int Ridx = i+k + j*Rnc;
+                        dminRI[Ridx] = fmin(dminRI[Ridx], -k);
+                        dmaxRI[Ridx] = fmax(dmaxRI[Ridx], -k);
+                    }
+                }
+            }
+        }
+    }
+    // catch missing pixels anyways update_dmin_dmax will dilate the range
+    for (int i=0;i<Rnpix;i++) {
+    	if (!std::isfinite(dminRI[i])|| !std::isfinite(dmaxRI[i]))  {dminRI[i] = -dmax; dmaxRI[i] = -dmin;}
+    }
+
+}
+
+
+
 #define SKIP_MAIN
 #include "remove_small_cc.c"
 

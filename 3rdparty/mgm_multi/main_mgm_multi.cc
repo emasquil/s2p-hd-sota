@@ -58,7 +58,8 @@ int main(int argc, char* argv[])
         fprintf (stderr, "    [-aP1         (1)]: multiplier factors of P1 and P2 when\n");
         fprintf (stderr, "    [-aP2         (1)]:    \\sum |I1 - I2|^2 < nch*aThresh^2\n");
         fprintf (stderr, "    [-aThresh     (5)]: Threshold for the multiplier factor (default 5)\n");
-        fprintf (stderr, "    [-S scales    (3)]: Number of scales\n");
+        fprintf (stderr, "    [-S numscales    (3)]: Number of scales. 0: no multiscale; -1: only subpixel oversampling is applied and must have ENV:SUBPIX>1,\n");
+        fprintf (stderr, "                           setting the bounds dminImg and dmaxImg allows to indicate the initialization\n");
         fprintf (stderr, "    [-Rd  fname]: right disparity map\n");
         fprintf (stderr, "    [-Rc  fname]: right cost map\n");
 		  fprintf (stderr, "    [-wl  fname]: regularization weights for the left disparity map\n");
@@ -77,7 +78,7 @@ int main(int argc, char* argv[])
         fprintf (stderr, "    ENV: TSGM_FIX_OVERCOUNT=1   : fix overcounting of the data term in the energy\n");
         fprintf (stderr, "    ENV: TSGM_DEBUG=0 : prints debug informtion\n");
 //		fprintf (stderr, "      ENV: TSGM_2LMIN=0 : use the improved TSGM cost only for TSGM=2. Overrides TSGM value\n");
-        fprintf (stderr, "    ENV: SUBPIX=1     : subpixel steps\n");
+        fprintf (stderr, "    ENV: SUBPIX=1     : subpixel oversampling steps\n");
         fprintf (stderr, "    ENV: USE_TRUNCATED_LINEAR_POTENTIALS=0 : use the Felzenszwalb-Huttenlocher\n");
         fprintf (stderr, "                      : truncated linear potential (when=1). P1 and P2 change meaning\n");
         fprintf (stderr, "                      : The potential they describe becomes:  V(p,q) = min(P2,  P1*|p-q|)\n");
@@ -102,7 +103,7 @@ int main(int argc, char* argv[])
     char* prefilter = pick_option(&argc, &argv, (char*) "p", (char*) "none"); //{none|census|sobelx}
     char* refine    = pick_option(&argc, &argv, (char*) "s", (char*) "none"); //{none|vfit|parabola|cubic}
     float truncDist = atof(pick_option(&argc, &argv, (char*) "truncDist",  (char*) "inf"));
-    int   scales    = atoi(pick_option(&argc, &argv, (char*) "S",  (char*) "3"));
+    int   numscales = atoi(pick_option(&argc, &argv, (char*) "S",  (char*) "3"));
 
     char* wl_name   = pick_option(&argc, &argv, (char*) "wl", (char*) "");   //weights left
     char* wr_name   = pick_option(&argc, &argv, (char*) "wr", (char*) "");   //weights right
@@ -118,7 +119,7 @@ int main(int argc, char* argv[])
     std::vector< std::pair< std::string, std::string > >  other_keyword_parameters;
     for(int i = 0; i<num_keyword_parameters; i++) {
        char* fname = pick_option(&argc, &argv, keyword_parameters[i], (char*)"");
-       other_keyword_parameters.push_back( std::pair< std::string, std::string>( keyword_parameters[i], fname )  );
+       other_keyword_parameters.push_back( std::pair< std::string, std::string>( keyword_parameters[i], fname ) );
     }
     
 
@@ -142,9 +143,13 @@ int main(int argc, char* argv[])
 
     struct Img dminI(u.nx, u.ny);
     struct Img dmaxI(u.nx, u.ny);
+    struct Img dminRI(v.nx, v.ny);
+    struct Img dmaxRI(v.nx, v.ny);
     for(int i=0;i<u.npix;i++) {dminI[i]=dmin; dmaxI[i]=dmax;}
+    for(int i=0;i<v.npix;i++) {dminRI[i]=-dmax; dmaxRI[i]=-dmin;}
 
-    if(strcmp (in_min_disp_file,"")!=0 ){
+
+    if(strcmp (in_min_disp_file,"")!=0 ) {
         dminI = iio_read_vector_split(in_min_disp_file);
         dmaxI = iio_read_vector_split(in_max_disp_file);
         // sanity check for nans
@@ -155,9 +160,23 @@ int main(int argc, char* argv[])
         for (int i=0;i<u.npix;i++) {
             if (dmaxI[i] < dminI[i] + 1) dmaxI[i] = ceil(dminI[i] + 1);
         }
+
+
+	
+        // if the left disparity range file is provided, compute the right disparity range else use dmin dmax 
+	compute_right_disparity_range_from_left(dminI, dmaxI, dminRI, dmaxRI, dmin, dmax);
+
     }
 
 
+    // reset disparity range for NAN values in the images
+    // the new disparity range is a very small one
+    for (int i=0;i<u.npix;i++) {
+       if (!std::isfinite(u_orig[i])) { dminI[i] = dmin; dmaxI[i] = dmin+1; }
+    }
+    for (int i=0;i<v.npix;i++) {
+       if (!std::isfinite(v_orig[i])) { dminRI[i] = dmin; dmaxRI[i] = dmin+1; }
+    }
 
 
 
@@ -171,18 +190,8 @@ int main(int argc, char* argv[])
     // variables for LR
     struct Img outoffR  = Img(v.nx, v.ny);
     struct Img outcostR = Img(v.nx, v.ny, 2);
-    struct Img dminRI(v.nx, v.ny);
-    struct Img dmaxRI(v.nx, v.ny);
-    for(int i = 0; i < v.npix; i++) {dminRI[i] = -dmax; dmaxRI[i] = -dmin;}
 
-    // reset disparity range for NAN values in the images
-    // the new disparity range is a very small one
-    for (int i=0;i<outoff.npix;i++) {
-       if (std::isnan(u_orig[i])) { dminI[i] = dmin; dmaxI[i] = dmin+1; }
-    }
-    for (int i=0;i<outoffR.npix;i++) {
-       if (std::isnan(v_orig[i])) { dminRI[i] = dmin; dmaxRI[i] = dmin+1; }
-    }
+
 
     // handle multiscale
     struct mgm_param param = {prefilter, refine, distance,truncDist,P1,P2,NDIR,aP1,aP2,aThresh,1.0};
@@ -193,19 +202,36 @@ int main(int argc, char* argv[])
     }
     // input Costvolume
     if(strcmp(inputCV, "") != 0) {
-       scales = 0; //disable multiscale if costvolume is given as input
+       numscales = 0; //disable multiscale if costvolume is given as input
        param.str_dict["inputCostVolume"] = inputCV;
     }
 
-    recursive_multiscale(u,v,dminI,dmaxI,dminRI,dmaxRI,outoff, outcost, outoffR, outcostR, scales, 0, &param);
+    if (numscales < 0) { // just apply a subpixel refinement of the disparity and skip the pixelic initialization
+	   
+	    //recursive_multiscale(u,v,dminI,dmaxI,dminRI,dmaxRI,outoff, outcost, outoffR, outcostR, numscales, 0, &param);
+	    
+	    // handle subpixel refinement
+	    if(SUBPIX()>1) {
+		    // disparity range is estimated from min,max on a 3x3 window and enlarged by +-2 
+		    update_dmin_dmax(dminI,  &dminI,  &dmaxI , dminI,  dmaxI,  2, 1);
+		    update_dmin_dmax(dminRI, &dminRI, &dmaxRI, dminRI, dmaxRI, 2, 1);
+		    struct mgm_param param = {prefilter, refine, distance,truncDist,P1,P2,NDIR,aP1,aP2,aThresh,(float)SUBPIX()};
+		    recursive_multiscale(u,v,dminI,dmaxI,dminRI,dmaxRI,outoff, outcost, outoffR, outcostR, 0, 0, &param);
+	    }
 
-    // handle subpixel refinement 
-    if(SUBPIX()>1) {
-       // disparity range is estimated from min,max on a 9x9 window and enlarged by +-2 
-       update_dmin_dmax(outoff,  &dminI,  &dmaxI , dminI,  dmaxI,  2, 4);
-       update_dmin_dmax(outoffR, &dminRI, &dmaxRI, dminRI, dmaxRI, 2, 4);
-       struct mgm_param param = {prefilter, refine, distance,truncDist,P1,P2,NDIR,aP1,aP2,aThresh,(float)SUBPIX()};
-       recursive_multiscale(u,v,dminI,dmaxI,dminRI,dmaxRI,outoff, outcost, outoffR, outcostR, 0, 0, &param);
+    } else { 
+
+	    recursive_multiscale(u,v,dminI,dmaxI,dminRI,dmaxRI,outoff, outcost, outoffR, outcostR, numscales, 0, &param);
+
+	    // handle subpixel refinement 
+	    if(SUBPIX()>1) {
+		    // disparity range is estimated from min,max on a 9x9 window and enlarged by +-2 
+		    update_dmin_dmax(outoff,  &dminI,  &dmaxI , dminI,  dmaxI,  2, 4);
+		    update_dmin_dmax(outoffR, &dminRI, &dmaxRI, dminRI, dmaxRI, 2, 4);
+		    struct mgm_param param = {prefilter, refine, distance,truncDist,P1,P2,NDIR,aP1,aP2,aThresh,(float)SUBPIX()};
+		    recursive_multiscale(u,v,dminI,dmaxI,dminRI,dmaxRI,outoff, outcost, outoffR, outcostR, 0, 0, &param);
+	    }
+
     }
 
 

@@ -154,6 +154,11 @@ def get_default_config() -> dict:
     # hirschmuller08_laplacian', 'sgbm', 'mgm', 'mgm_multi', 'stereosgm_gpu'
     cfg['matching_algorithm'] = 'mgm'
 
+    # this option allows to refine the disparity computed by the fast stereosgm_gpu 
+    # it only works in combination with  cfg['matching_algorithm'] = 'stereosgm_gpu'
+    # the postrpocess runs an MGM on a narrow band around the previous result
+    cfg['postprocess_stereosgm_gpu'] = False
+
     # size of the Census NCC square windows used in mgm
     cfg['census_ncc_win'] = 5
 

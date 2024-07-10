@@ -248,13 +248,70 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         result = specklefilter(result,specklefilter_surface, 5)
 
         result[0:2,:] = np.nan
-        result[-3:-1,:] = np.nan
+        result[-2:,:] = np.nan
         result[:,0:2] = np.nan
-        result[:,-1:-3] = np.nan
+        result[:,-2:] = np.nan
 
         common.rasterio_write(disp, result)
 
-        create_rejection_mask(disp, im1, im2, mask)
+        dispgpu= '{}_gpu.tif'.format(os.path.splitext(disp)[0])
+        common.rasterio_write(dispgpu, result)
+
+
+        ##### POSTPROCESS WITH SUBPIXEL MGM
+        if cfg['postprocess_stereosgm_gpu']: 
+
+            env['REMOVESMALLCC']  = str(cfg['stereo_speckle_filter'])
+            env['MINDIFF']        = str(cfg['mgm_mindiff_control'])
+            env['TESTLRRL']       = str(cfg['mgm_leftright_control'])
+            env['TESTLRRL_TAU']   = str(cfg['mgm_leftright_threshold'])
+            env['CENSUS_NCC_WIN'] = str(cfg['census_ncc_win'])
+            env['SUBPIX'] = '2'
+            # it is required that p2 > p1. The larger p1, p2, the smoother the disparity
+            regularity_multiplier = cfg['stereo_regularity_multiplier']
+    
+            nb_dir = cfg['mgm_nb_directions']
+    
+            P1 = 8*regularity_multiplier   # penalizes disparity changes of 1 between neighbor pixels
+            P2 = 32*regularity_multiplier  # penalizes disparity changes of more than 1
+            #conf = '{}_confidence.tif'.format(os.path.splitext(disp)[0])   << TODO: currently not working
+    
+            # feed dmin and dmax 
+            disp_min= '{}_dmin.tif'.format(os.path.splitext(disp)[0])
+            disp_max= '{}_dmax.tif'.format(os.path.splitext(disp)[0])
+            common.rasterio_write(disp_min, result)
+            common.rasterio_write(disp_max, result)
+    
+            common.run(
+                '{executable} '
+                '-m {disp_min} -M {disp_max} '
+                '-r -1 -R 1 '
+                '-S -1 '    ## <<< this is the line that makes MGM run only as a refinement.
+                '-s vfit '
+                '-t census '
+                '-O {nb_dir} '
+                '-P1 {P1} -P2 {P2} '
+                #'-confidence_consensusL {conf} '
+                '{im1} {im2} {disp}'.format(
+                    executable='mgm_multi',
+                    disp_min=disp_min,
+                    disp_max=disp_max,
+                    nb_dir=nb_dir,
+                    P1=P1,
+                    P2=P2,
+                    #conf=conf,
+                    im1=im1,
+                    im2=im2,
+                    disp=disp,
+                ),
+                env=env,
+                timeout=timeout,
+            )
+    
+    
+    
+            create_rejection_mask(disp, im1, im2, mask)
+
 
 
     if algo == 'mgm':

@@ -310,7 +310,7 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
     
     
     
-            create_rejection_mask(disp, im1, im2, mask)
+        create_rejection_mask(disp, im1, im2, mask)
 
 
 

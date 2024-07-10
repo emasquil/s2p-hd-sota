@@ -331,6 +331,9 @@ def image_keypoints_cv(im, x, y, w, h, max_nb=None, thresh_dog=0.0133, nb_octave
         h = min(h, ds.height - y)
         in_buffer = ds.read(window=rio.windows.Window(x, y, w, h))
 
+    # raise an exception if the image is flat (min=max) it has no sift points and will break the pipeline downstream 
+    if np.max(in_buffer[0]) == np.min(in_buffer[0]) :
+        raise Exception("The current image has no content: aborting") 
 
     from s2p import common
 #    im_adjusted = common.linear_stretching_and_quantization_8bit ( in_buffer[0].astype(float) - cv.GaussianBlur( in_buffer[0].astype(float), (11,11), 0 ) , 0.1)

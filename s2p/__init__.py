@@ -54,7 +54,7 @@ from .gpu_memory_manager import GPUMemoryManager
 logger = logging.getLogger(__name__)
 
 
-def pointing_correction(cfg, tile: Tile, i):
+def pointing_correction(cfg, tile: Tile, i) -> bool:
     """
     Compute the translation that corrects the pointing error on a pair of tiles.
 
@@ -72,23 +72,31 @@ def pointing_correction(cfg, tile: Tile, i):
     # correct pointing error
     logger.info('correcting pointing on tile {} {} pair {}...'.format(x, y, i))
     method = 'relative' if cfg['relative_sift_match_thresh'] is True else 'absolute'
-    A, m = pointing_accuracy.compute_correction(
-        cfg, img1, img2, rpc1, rpc2, x, y, w, h, method,
-        cfg['sift_match_thresh'], cfg['max_pointing_error'],
-        cfg['n_gcp_per_axis']
-    )
+    try:
+        A, m = pointing_accuracy.compute_correction(
+            cfg, img1, img2, rpc1, rpc2, x, y, w, h, method,
+            cfg['sift_match_thresh'], cfg['max_pointing_error'],
+            cfg['n_gcp_per_axis']
+        )
+        if A is not None:  # A is the correction matrix
+            np.savetxt(os.path.join(out_dir, 'pointing.txt'), A, fmt='%6.3f')
+        if m is not None:  # m is the list of sift matches
+            np.savetxt(os.path.join(out_dir, 'sift_matches.txt'), m, fmt='%9.3f')
+            np.savetxt(os.path.join(out_dir, 'center_keypts_sec.txt'),
+                       np.mean(m[:, 2:], 0), fmt='%9.3f')
+            if cfg['debug']:
+                visualisation.plot_matches(cfg, img1, img2, rpc1, rpc2, m,
+                                           os.path.join(out_dir,
+                                                        'sift_matches_pointing.png'),
+                                           x, y, w, h)
+        return True  ## success
+    except Exception:
+        # pointing accuracy can fail because one of the images is empty
+        # in this case, we return success = False and the tile will be removed 
+        # from the pipeline 
+        logger.error('pointing_accuracy.compute_correction has failed: tile: {} {}'.format(*tile.coordinates[0:2]))
 
-    if A is not None:  # A is the correction matrix
-        np.savetxt(os.path.join(out_dir, 'pointing.txt'), A, fmt='%6.3f')
-    if m is not None:  # m is the list of sift matches
-        np.savetxt(os.path.join(out_dir, 'sift_matches.txt'), m, fmt='%9.3f')
-        np.savetxt(os.path.join(out_dir, 'center_keypts_sec.txt'),
-                   np.mean(m[:, 2:], 0), fmt='%9.3f')
-        if cfg['debug']:
-            visualisation.plot_matches(cfg, img1, img2, rpc1, rpc2, m,
-                                       os.path.join(out_dir,
-                                                    'sift_matches_pointing.png'),
-                                       x, y, w, h)
+        return False ## not success
 
 
 def global_pointing_correction(cfg, tiles: List[Tile]) -> None:
@@ -108,7 +116,7 @@ def global_pointing_correction(cfg, tiles: List[Tile]) -> None:
                 common.remove(os.path.join(d, 'center_keypts_sec.txt'))
 
 
-def rectification_pair(cfg, tile: Tile, i: int) -> None:
+def rectification_pair(cfg, tile: Tile, i: int) -> bool:
     """
     Rectify a pair of images on a given tile.
 
@@ -709,8 +717,11 @@ def main(user_cfg, start_from=0):
     # local-pointing step:
     if start_from <= 1:
         logger.info('1) correcting pointing locally...')
-        parallel.launch_calls(cfg, pointing_correction, tiles_pairs, nb_workers,
+        successes = parallel.launch_calls(cfg, pointing_correction, tiles_pairs, nb_workers,
                               timeout=timeout)
+
+        # update the tiles removing the discarded tiles
+        tiles_pairs = [x for x, b in zip(tiles_pairs, successes) if b]
 
     # global-pointing step:
     if start_from <= 2:

@@ -80,6 +80,11 @@ You can test if S2P is correctly working using:
 
     make test
 
+If the test fails due to a comparison with nan, this probably means that the pyproj
+data is not correctly downloaded.  You can force its download by running
+
+    pyproj sync -v --file us_nga_egm96_15
+
 If some libraries needed by `s2p` (such as `libfftw3`) are installed in a custom location,
 for example `/usr/joe/local`, then the compilation and tests will fail with exit status 127
 or mentioning not being able to load shared  libaries.  You can help the compiler to find

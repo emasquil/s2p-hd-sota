@@ -16,6 +16,7 @@
   "disp_range_method" : "sift",
   "msk_erosion": 0,
   "dsm_resolution": 0.5,
+  "dsm_aggregation_with_max" : false,
   "3d_filtering_radius_gsd": 6,
   "3d_filtering_fill_factor": 0.25 
 }

@@ -73,6 +73,10 @@ def get_default_config() -> dict:
     # (dsm_resolution by default)
     cfg['dsm_sigma'] = None
 
+    # point cloud is aggregated into a DSM by takin the max on each spatial cell, this is now the default dehavior in s2p
+    # another possibility is to aggregate with average but this is not recommended on urban areas
+    cfg['dsm_aggregation_with_max'] = True
+
     # relative sift match threshold (else sift match threshold is absolute)
     cfg['relative_sift_match_thresh'] = True
 

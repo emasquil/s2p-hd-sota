@@ -564,14 +564,25 @@ def plys_to_dsm(cfg, tile: Tile) -> None:
         nply = os.path.join(tile.dir, n_dir, 'cloud.ply')
         if os.path.exists(nply):
             clouds.append(nply)
+
+    # this option controls the type of aggregation
+    # TODO: this interface is VERY ugly and will be reworked within a new plyflatten
+    use_max_aggregation = cfg['dsm_aggregation_with_max']
     raster, profile = plyflatten_from_plyfiles_list(clouds,
                                                     resolution=r,
                                                     roi=roi,
                                                     radius=cfg['dsm_radius'],
-                                                    sigma=cfg['dsm_sigma'])
+                                                    sigma=cfg['dsm_sigma'],
+                                                    amax=use_max_aggregation
+                                                    )
 
     # save output image with utm georeferencing
-    common.rasterio_write(out_dsm, raster[:, :, 0], profile=profile)
+    if use_max_aggregation:
+        # the raster channel where the max is stored is #4
+        common.rasterio_write(out_dsm, raster[:, :, 4], profile=profile)
+    else:
+        common.rasterio_write(out_dsm, raster[:, :, 0], profile=profile)
+
 
     # export confidence (optional)
     # note that the plys are assumed to contain the fields:

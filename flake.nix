@@ -115,11 +115,13 @@
           pkgs.python311Packages.buildPythonPackage
           rec {
             pname = "plyflatten";
-            version = "0.2.0";
+            version = "0.2.2dev";
             pyproject = true;
-            src = pkgs.python311Packages.fetchPypi {
-              inherit pname version;
-              sha256 = "sha256-3ei0Hl6q9bB+x3Fa3bRGowTXMVy9m1AOtKDTZ6u4+oc=";
+            src = pkgs.fetchFromGitHub {
+              owner = "centreborelli";
+              repo = "plyflatten";
+              rev = "e083160f42be9120c47ed1b3c7a4c5b9fc8537c3";
+              sha256 = "sha256-PX+tToPjMjVJhlqbqW9SByr4LD/RJg/iSaNDTBCVdSE=";
             };
             propagatedBuildInputs = with pkgs.python311Packages; [
               numpy
@@ -292,6 +294,8 @@
               substituteInPlace setup.py --replace "opencv-python-headless" ""
               # provided as 'rpcm' in propagatedBuildInputs
               substituteInPlace setup.py --replace "'rpcm @ git+https://github.com/centreborelli/rpcm'," ""
+              # provided as 'plyflatten' in propagatedBuildInputs
+              substituteInPlace setup.py --replace "'plyflatten @ git+https://github.com/centreborelli/plyflatten'," ""
             '';
             dontUseSetuptoolsCheck = true;
             nativeCheckInputs = with pkgs.python311Packages; [

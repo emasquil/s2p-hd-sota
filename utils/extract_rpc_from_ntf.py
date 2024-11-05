@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # tools for extracting RPC from NTIF/NTF file
 # Copyright (C) 2016, Gabriele Facciolo <facciolo@cmla.ens-cachan.fr>
 

@@ -1,0 +1,29 @@
+{
+  "out_dir" : "../../testoutput/output_pair",
+  "images" : [
+    {"img" : "img_01.tif"},
+    {"img" : "img_02.tif"}
+    ],
+  "roi" : {
+      "x" : 150,
+      "y" : 150,
+      "w" : 700,
+      "h" : 700
+  },
+  "horizontal_margin": 20,
+  "vertical_margin": 5,
+  "tile_size" : 300,
+  "disp_range_method" : "sift",
+  "msk_erosion": 0,
+  "dsm_resolution": 0.5,
+  "dsm_aggregation_with_max" : false,
+  "3d_filtering_radius_gsd": 6,
+  "3d_filtering_fill_factor": 0.25,
+
+  "disp_range_method" : "sift",
+  "sift_use_opencv_implementation" : true,
+  "matching_algorithm" : "stereosgm_gpu",
+  "postprocess_stereosgm_gpu" : false, 
+  "gpu_total_memory" : 15000,
+  "max_processes_stereo_matching" : 12
+}

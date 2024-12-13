@@ -8,6 +8,20 @@ from plyflatten import plyflatten_from_plyfiles_list
 
 from tests_utils import data_path
 
+#    @property
+#    def is_tiled(self):
+#        return self.block_shapes and self.block_shapes[0][1] != self.width
+#        warnings.warn(
+#            "is_tiled will be removed in a future version. "
+#            "Please consider copying the body of this function "
+#            "into your program or module.",
+#            PendingDeprecationWarning
+#        )
+#        # It's rare but possible that a dataset's bands have different
+#        # block structure. Therefore we check them all against the
+#        # width of the dataset.
+#        return self.block_shapes and all(self.width != w for _, w in self.block_shapes)
+
 
 def test_plyflatten():
     # Test data
@@ -21,7 +35,8 @@ def test_plyflatten():
         expected_raster = src.read(1)
         expected_crs = src.crs
         expected_transform = src.transform
-        expected_is_tiled = src.is_tiled
+        T = src.block_shapes and all(src.width != w for _,w in src.block_shapes)
+        expected_is_tiled = T
         expected_nodata = src.nodata
 
     # Check that both rasters are equal pixel-wise within a tolerance

@@ -189,7 +189,7 @@
 #include <stdarg.h>
 #include <libgen.h> // needed for dirname() multi-platform
 
-#ifdef __MINGW32__ // needed for tmpfile(), this flag is also set by MINGW64 
+#ifdef __MINGW32__ // needed for tmpfile(), this flag is also set by MINGW64
 #include <windows.h>
 #endif
 
@@ -535,7 +535,9 @@ int iio_type_id(size_t sample_size, bool ieeefp_sample, bool signed_sample)
 		switch(sample_size) {
 		case sizeof(float):       return IIO_TYPE_FLOAT;
 		case sizeof(double):      return IIO_TYPE_DOUBLE;
+#ifdef I_CAN_HAS_LONGDOUBLE
 		case sizeof(long double): return IIO_TYPE_LONGDOUBLE;
+#endif
 		case sizeof(float)/2:     return IIO_TYPE_HALF;
 		default: fail("bad float size %zu", sample_size);
 		}
@@ -2990,7 +2992,7 @@ static int read_beheaded_npy(struct iio_image *x,
 	else if (0 == strcmp(desc, "c8")) x->type = IIO_TYPE_FLOAT;
 	else if (0 == strcmp(desc, "c16")) x->type = IIO_TYPE_DOUBLE;
 	else return fprintf(stderr,
-			"IIO ERROR: unrecognized npy type \"%s\"\n", desc); 
+			"IIO ERROR: unrecognized npy type \"%s\"\n", desc);
 	if (*desc == 'c') pd *= 2; // 1 complex = 2 reals
 
 	// fill image struct
@@ -3271,7 +3273,7 @@ static int read_beheaded_fit(struct iio_image *x,
 // with name "RAW[...]:file.xxx".  The "..." specify the
 // details of the raw format.
 //
-// 
+//
 // Example:
 //
 // RAW[w320,h200,tFLOAT]:file.xxx

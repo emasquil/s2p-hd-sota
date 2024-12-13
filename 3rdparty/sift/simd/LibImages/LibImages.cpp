@@ -10,8 +10,10 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+#ifdef USE_SSE
 #include <xmmintrin.h>
 #include <x86intrin.h>
+#endif
 #include <cmath>
 #include <algorithm>
 #include <cstring>

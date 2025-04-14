@@ -76,8 +76,10 @@ def tilewise_wrapper(cfg, fun, *args, stdout: str, tile_label: str, **kwargs):
     prevfilters = list(root.filters)
     for h in prevhandlers:
         root.removeHandler(h)
+        h.close()
     for f in prevfilters:
         root.removeFilter(f)
+        f.close()
 
     root.setLevel(logging.INFO)
     f = logging.Formatter('%(asctime)s %(name)s.%(funcName)s %(levelname)-8s %(message)s')
@@ -108,6 +110,7 @@ def tilewise_wrapper(cfg, fun, *args, stdout: str, tile_label: str, **kwargs):
         # restore the previous loggers
         for h in list(root.handlers):
             root.removeHandler(h)
+            h.close()
         for f in list(root.filters):
             root.removeFilter(f)
         for h in prevhandlers:

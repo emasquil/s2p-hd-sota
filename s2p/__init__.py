@@ -27,6 +27,7 @@ import tempfile
 import logging
 from typing import List
 import multiprocessing
+import time
 
 import numpy as np
 import rasterio
@@ -49,6 +50,8 @@ from s2p import visualisation
 from s2p import config
 from s2p.tile import Tile
 from .gpu_memory_manager import GPUMemoryManager
+
+import warnings
 
 
 logger = logging.getLogger(__name__)
@@ -199,7 +202,7 @@ def disparity_range_check(cfg, tile: Tile, i: int):
     pointing = os.path.join(cfg['out_dir'],
                             'global_pointing_pair_{}.txt'.format(i))
 
-    disp_min, disp_max =  np.loadtxt (os.path.join(out_dir, 'disp_min_max.txt'))
+    disp_min, disp_max =  np.loadtxt(os.path.join(out_dir, 'disp_min_max.txt'))
 
     try:
         A = np.loadtxt(os.path.join(out_dir, 'pointing.txt'))
@@ -527,12 +530,15 @@ def plys_to_dsm(cfg, tile: Tile) -> None:
     Args:
         tile: a dictionary that provides all you need to process a tile
     """
+
+    ply_name = 'cloud.ply'
+
     out_dsm = os.path.join(tile.dir, 'dsm.tif')
     out_conf = os.path.join(tile.dir, 'confidence.tif')
     out_dsm_filtered = os.path.join(tile.dir, 'dsm-filtered.tif')
     r = cfg['dsm_resolution']
 
-    in_ply = os.path.join(tile.dir, 'cloud.ply')
+    in_ply = os.path.join(tile.dir, ply_name)
     # first check if ply exists (it might not exist because of a failed blockmatching)
     if not os.path.exists(in_ply):
         # TODO: take note of the missing part of the DSM
@@ -561,7 +567,7 @@ def plys_to_dsm(cfg, tile: Tile) -> None:
     # since some tiles might have failed we test for the neighborhood tiles before feeding them to merge
     clouds = []
     for n_dir in tile.neighborhood_dirs:
-        nply = os.path.join(tile.dir, n_dir, 'cloud.ply')
+        nply = os.path.join(tile.dir, n_dir, ply_name)
         if os.path.exists(nply):
             clouds.append(nply)
 
@@ -765,8 +771,10 @@ def main(user_cfg, start_from=0):
         logger.info('4) reason about the disparity ranges... (WIP)')
         # extra step checking the disparity range
         # verity if the disparity range of a tile is not too different from its neighbors
+        warnings.filterwarnings("error")
         tiles_usefulnesses = parallel.launch_calls(cfg, disparity_range_check, tiles_pairs, nb_workers,
                               timeout=timeout)
+        warnings.resetwarnings()
         # some feedback
         for x, b in zip(tiles_pairs, tiles_usefulnesses):
             if not b: logger.info('  removed tile: %s', x[1].dir)
@@ -799,7 +807,7 @@ def main(user_cfg, start_from=0):
                               gpu_mem_manager,
                               timeout=timeout)
 
-    ### UPATE TILES_WITH_CFG FROM CURRENT TILES_PAIRS
+    ### UPDATE TILES_WITH_CFG FROM CURRENT TILES_PAIRS
     tilesdict = dict( [(t.json,t) for _,t,_ in tiles_pairs] )
     tiles_with_cfg = [(cfg,t) for t in tilesdict.values()]
 

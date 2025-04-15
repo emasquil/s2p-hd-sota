@@ -635,6 +635,7 @@ def global_dsm(cfg, tiles: List[Tile]) -> None:
                                        align=cfg["dsm_resolution"])
 
     creation_options = {"tiled": True,
+                        "zlevel": 2,
                         "blockxsize": 256,
                         "blockysize": 256,
                         "compress": "deflate",

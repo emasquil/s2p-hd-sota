@@ -458,6 +458,9 @@ def tiles_full_info(cfg, tw, th, tiles_txt, create_masks=False) -> List[Tile]:
                         roi = tile_cfg['roi']
                         coords = roi['x'], roi['y'], roi['w'], roi['h']
                         tile = create_tile(cfg, coords, neighborhood_coords_dict)
+                        for t in  tile_cfg['neighborhood_dirs'] :
+                            tile.neighborhood_dirs.append(t) 
+
                         tiles.append(tile)
 
                     # check if the mask.tif is present; othewise create_masks should have been True

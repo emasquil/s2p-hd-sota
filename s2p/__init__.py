@@ -302,8 +302,9 @@ def disparity_range_check(cfg, tile: Tile, i: int):
             # TODO continue this
 
     # This is a very simple heuristic test. If the disparity range is > 512 something is wrong with the tile
+    # This test is rendered useless by the addition of the refine_matches function
     if disp_max-disp_min > w/2:
-        return False
+        return True
     else:
         return True
 

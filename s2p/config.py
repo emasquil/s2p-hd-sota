@@ -221,4 +221,13 @@ def get_default_config() -> dict:
     # This speeds-up the triangulation step if the localization rpc is not provided in the images.
     cfg['fit_localization_rpc'] = False
 
+    # Maximum allowed altitude span (in meters) among triangulated SIFT matches.
+    # If the span exceeds this value, it is assumed that some matches are likely incorrect.
+    # In that case, only points within median altitude ± 'altitude_margin' are kept.
+    cfg['max_altitude_span'] = 300
+
+    # Margin (in meters) around the median altitude within which matches are retained
+    # when filtering is applied due to a high altitude span.
+    cfg['altitude_margin'] = 250
+
     return cfg

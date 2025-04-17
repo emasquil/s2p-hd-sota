@@ -26,14 +26,12 @@ import multiprocessing
 import tempfile
 import logging
 from typing import List
-import multiprocessing
-import time
+import subprocess
 
 import numpy as np
 import rasterio
 import rasterio.merge
 from plyflatten import plyflatten_from_plyfiles_list
-
 
 from s2p import common
 from s2p import parallel
@@ -48,10 +46,9 @@ from s2p import triangulation
 from s2p import fusion
 from s2p import visualisation
 from s2p import config
+from s2p import homography
 from s2p.tile import Tile
 from .gpu_memory_manager import GPUMemoryManager
-
-import warnings
 
 
 logger = logging.getLogger(__name__)
@@ -119,6 +116,82 @@ def global_pointing_correction(cfg, tiles: List[Tile]) -> None:
                 common.remove(os.path.join(d, 'center_keypts_sec.txt'))
 
 
+# evaluate the epipolar line between two images at a value of h
+def epipolar_correspondence(rpc_A, rpc_B, x, y, h):
+    lon, lat = rpc_A.localization(x, y, h)
+    return rpc_B.projection(lon, lat, h)
+
+
+def triangulation_iterative(rpc1, rpc2, x1, y1, x2, y2, A=None):
+    """
+    Triangulate a match between two images.
+
+    Arguments:
+        rpc1, rpc2: calibration data for each image
+        x1, y1: pixel coordinates in the domain of the first image
+        x2, y2: pixel coordinates in the domain of the second image
+        A: pointing correction matrix
+
+    Return value: a 4-tuple (lon, lat, h, e)
+        lon, lat, h, e: coordinates of the triangulated point, reprojection error
+    """
+
+    # apply the pointing correction matrix
+    if A is not None:
+        tempout = homography.points_apply_homography((A), np.vstack([x2 , y2]).transpose())
+        x2 = tempout[:,0]
+        y2 = tempout[:,1]
+
+    # initial guess for h
+    h = rpc1.alt_offset
+    hstep = 1
+    err = 0
+
+    # iteratively improve h to minimize the error
+    for _ in range(10):
+        # two points on the epipolar curve of (x1, y1)
+        # are used to approximate it by a straight line
+        px, py = epipolar_correspondence(rpc1, rpc2, x1, y1, h)
+        qx, qy = epipolar_correspondence(rpc1, rpc2, x1, y1, h + hstep)
+
+        # displacement vectors between these two points and with the target
+        ax, ay = qx-px, qy-py
+        bx, by = x2-px, y2-py
+
+        # projection of the target into the straight line
+        l = (ax*bx + ay*by) / (ax*ax + ay*ay)
+        rx, ry = px+l*ax, py+l*ay
+
+        # error of this projection
+        err = np.hypot(rx - x2, ry - y2)
+
+        # new value for h
+        h = h + l * hstep
+
+        # stop if l becomes too small (max 2 or 3 iterations are performed in practice)
+        if np.all(np.fabs(l) < 1e-3):
+            break
+
+    lon, lat = rpc1.localization(x1, y1, h)
+    return lon, lat, h, err
+
+
+def refine_matches(rpcA, rpcB, matches, A, max_altitude_span, altitude_margin):
+
+    if (matches is None) or (len(matches) == 0):
+        return matches
+
+    lon, lat, alt, err = triangulation_iterative(rpcA, rpcB, matches[:,0] , matches[:,1] , matches[:,2], matches[:,3],(A))
+
+    mmin, mmed, mmax = np.quantile(alt, [.01, .5, .99])
+    removed_matches = (alt <= mmed + altitude_margin) & (alt >= mmed - altitude_margin)
+
+    if max(alt) - min(alt) > max_altitude_span:
+        logger.info(f"maximum altitude range moved from {max(alt) - min(alt)} to {mmax-mmin}")
+        return matches[removed_matches]
+
+    return matches
+
 def rectification_pair(cfg, tile: Tile, i: int) -> bool:
     """
     Rectify a pair of images on a given tile.
@@ -154,15 +227,18 @@ def rectification_pair(cfg, tile: Tile, i: int) -> bool:
             try:
                 m_n = np.loadtxt(sift_from_neighborhood)
                 # added sifts in the ellipse of semi axes : (3*w/4, 3*h/4)
-                m_n = m_n[np.where(np.linalg.norm([(m_n[:, 0] - (x + w/2)) / w,
-                                                   (m_n[:, 1] - (y + h/2)) / h],
-                                                  axis=0) < 3/4)]
+    #            m_n = m_n[np.where(np.linalg.norm([(m_n[:, 0] - (x + w/2)) / w,
+    #                                               (m_n[:, 1] - (y + h/2)) / h],
+    #                                              axis=0) < 8/4)]
                 if m is None:
                     m = m_n
                 else:
                     m = np.concatenate((m, m_n))
             except IOError:
                 logger.warning('%s does not exist' % sift_from_neighborhood)
+
+    # remove sift matches that triangulate to points that are extreme
+    m = refine_matches(rpc1, rpc2, m, A, cfg['max_altitude_span'], cfg['altitude_margin'])
 
     rect1 = os.path.join(out_dir, 'rectified_ref.tif')
     rect2 = os.path.join(out_dir, 'rectified_sec.tif')

@@ -230,4 +230,10 @@ def get_default_config() -> dict:
     # when filtering is applied due to a high altitude span.
     cfg['altitude_margin'] = 250
 
+    # Merging method when merging local DSMs into a global one, in case of overlapping tiles
+    # "first": reverse painting, i.e value chosen from the first tile merged
+    # "last": paint valid new on top of existing
+    # "min" or "max": pixel-wise (min or max) of existing and new
+    cfg['dsm_merging_method'] = "max"
+
     return cfg

@@ -699,6 +699,136 @@ def plys_to_dsm(cfg, tile: Tile) -> None:
         common.rasterio_write(out_dsm_filtered, filtered, profile=profile)
 
 
+def merge_tiles_rasterio(paths, bounds, res, dst_path, creation_options, method):
+    """
+    Merge a list of raster tiles into a single raster.
+
+    Parameters:
+        paths (list of str): List of file paths to the input raster tiles to be merged.
+        bounds (tuple or None): Bounding box (left, bottom, right, top) to limit the merge.
+                                If None, bounds are inferred from the input tiles.
+        res (float or tuple): Output resolution (pixel size). Can be a single float or (xres, yres).
+        dst_path (str): Save path to the output merged raster file.
+        creation_options (dict): GDAL creation options (e.g., compression, tiling, block size).
+        method (str): Merge method to use when overlapping pixels exist.
+
+    Returns:
+        None. The merged raster is written to `dst_path`.
+    """
+
+    rasterio.merge.merge(paths,
+                         bounds=bounds,
+                         res=res,
+                         nodata=np.nan,
+                         indexes=[1],
+                         dst_path=dst_path,
+                         dst_kwds=creation_options,
+                         method=method)
+    return
+
+
+def merge_with_gdalwarp(input_files, output_file, nb_workers, nodata=np.nan):
+    """
+    Merge multiple raster files using gdalwarp with maximum value resampling.
+
+    Parameters:
+        input_files (list of str): List of file paths to raster files to be merged.
+        output_file (str): Save path to the output merged raster file.
+        nb_workers (int): Number of threads to use for processing.
+        nodata (float, optional): NoData value to consider during merge (default: np.nan).
+
+    Returns:
+        None. The result is saved to `output_file`.
+    """
+    os.environ['GDAL_NUM_THREADS'] = str(nb_workers) # allow GDAL more than one thread to allow gdalwarp to multiprocess
+
+    if np.isnan(nodata):
+        nodata_str = "nan"
+    else:
+        nodata_str = str(nodata)
+
+    nb_workers = min(nb_workers, len(input_files))
+
+    cmd = [
+        "gdalwarp",
+        "-q",
+        "-wo", f"NUM_THREADS={nb_workers}",
+        "-r", "max",
+        "-wo", "UNIFIED_SRC_NODATA=YES",
+        "-srcnodata", nodata_str,
+        "-dstnodata", nodata_str,
+        *input_files,
+        output_file
+    ]
+    subprocess.run(cmd, check=True)
+    os.environ['GDAL_NUM_THREADS'] = "1"
+
+
+def merge_tiles_mp(nb_workers, global_dst_path, save_folder,
+                   paths, bounds, res, creation_options, method,
+                   remove_merged=True):
+    """
+    Merge a large number of DSM tiles in parallel using Rasterio and GDAL.
+
+    This function splits the input tile list into subsets, merges each subset in parallel
+    using Rasterio, and finally merges the intermediate results using `gdalwarp` with
+    multi-threading.
+
+    Parameters:
+        nb_workers (int): Number of worker processes to run in parallel.
+        global_dst_path (str): Path to save the final merged DSM.
+        save_folder (str): Directory where intermediate merged tiles are saved.
+        paths (list of str): List of paths to input DSM tile files.
+        bounds (tuple or None): Bounding box for the merge (left, bottom, right, top).
+                                If None, bounds are inferred from the input tiles.
+        res (float or tuple): Output resolution (pixel size). Can be a single float or (xres, yres).
+        creation_options (dict): GDAL creation options for output files.
+        method (str): Resampling method used in rasterio.merge.
+        remove_merged (bool, optional): If True (default), deletes intermediate merged tiles
+                                        after the final merge.
+
+    Returns:
+        None. The final merged DSM is saved to `global_dst_path`.
+    """
+
+    tiles_per_process = int(np.ceil(len(paths) / nb_workers))
+
+    if tiles_per_process <= 4:
+        # if there are only few tiles, it is faster to run everything at once
+        # merge_with_gdalwarp(paths, global_dst_path, nb_workers, nodata=np.nan)
+        merge_tiles_rasterio(paths, bounds, res, global_dst_path, creation_options, method)
+        return
+
+    context = multiprocessing.get_context("spawn")
+    pool = context.Pool(nb_workers)
+
+    list_paths_to_merge = [
+        paths[i*tiles_per_process: (i+1)*tiles_per_process] for i in range(nb_workers)
+                                                            if i*tiles_per_process < len(paths) # only consider non-empty subsets of tiles
+    ]
+    dst_paths = [
+        os.path.join(save_folder, f"merge_{i}.tif") for i in range(len(list_paths_to_merge))
+    ]
+
+    results = []
+
+    for (paths_to_merge, dst_path) in zip(list_paths_to_merge, dst_paths):
+        results.append(pool.apply_async(
+            merge_tiles_rasterio, args=(paths_to_merge, bounds, res, dst_path, creation_options, method)
+        ))
+
+    pool.close()
+    pool.join()
+
+    merge_with_gdalwarp(dst_paths, global_dst_path, nb_workers, nodata=np.nan)
+
+    if remove_merged:
+        for dst_path in dst_paths:
+            os.remove(dst_path)
+
+    return
+
+
 def global_dsm(cfg, tiles: List[Tile]) -> None:
     """
     Merge tilewise DSMs and confidence maps in a global DSM and confidence map.
@@ -736,32 +866,47 @@ def global_dsm(cfg, tiles: List[Tile]) -> None:
         if os.path.exists(c):
             confidence_maps.append(c)
 
+    nb_workers = cfg['max_processes'] or multiprocessing.cpu_count()
+    save_folder = os.path.join(cfg["out_dir"], "tile_merging")
+    os.makedirs(save_folder, exist_ok=True)
+
     if dsms:
-        rasterio.merge.merge(dsms,
-                             bounds=bounds,
-                             res=cfg["dsm_resolution"],
-                             nodata=np.nan,
-                             indexes=[1],
-                             dst_path=os.path.join(cfg["out_dir"], "dsm.tif"),
-                             dst_kwds=creation_options)
+        global_dst_path_dsm = os.path.join(cfg["out_dir"], "dsm.tif")
+        merge_tiles_mp(nb_workers,
+                       global_dst_path_dsm,
+                       save_folder,
+                       dsms,
+                       bounds,
+                       res=cfg["dsm_resolution"],
+                       creation_options=creation_options,
+                       method=cfg["dsm_merging_method"],
+                       remove_merged=True)
 
     if dsms_filtered:
-        rasterio.merge.merge(dsms_filtered,
-                             bounds=bounds,
-                             res=cfg["dsm_resolution"],
-                             nodata=np.nan,
-                             indexes=[1],
-                             dst_path=os.path.join(cfg["out_dir"], "dsm-filtered.tif"),
-                             dst_kwds=creation_options)
+        global_dst_path_dsm_filtered = os.path.join(cfg["out_dir"], "dsm-filtered.tif")
+        merge_tiles_mp(nb_workers,
+                       global_dst_path_dsm_filtered,
+                       save_folder,
+                       dsms_filtered,
+                       bounds,
+                       res=cfg["dsm_resolution"],
+                       creation_options=creation_options,
+                       method=cfg["dsm_merging_method"],
+                       remove_merged=True)
 
     if confidence_maps:
-        rasterio.merge.merge(confidence_maps,
-                             bounds=bounds,
-                             res=cfg["dsm_resolution"],
-                             nodata=np.nan,
-                             indexes=[1],
-                             dst_path=os.path.join(cfg["out_dir"], "confidence.tif"),
-                             dst_kwds=creation_options)
+        global_dst_path_dsm_confidence = os.path.join(cfg["out_dir"], "confidence.tif")
+        merge_tiles_mp(nb_workers,
+                       global_dst_path_dsm_confidence,
+                       save_folder,
+                       confidence_maps,
+                       bounds,
+                       res=cfg["dsm_resolution"],
+                       creation_options=creation_options,
+                       method=cfg["dsm_merging_method"],
+                       remove_merged=True)
+
+    os.rmdir(save_folder)
 
 
 def main(user_cfg, start_from=0):
@@ -848,10 +993,8 @@ def main(user_cfg, start_from=0):
         logger.info('4) reason about the disparity ranges... (WIP)')
         # extra step checking the disparity range
         # verity if the disparity range of a tile is not too different from its neighbors
-        warnings.filterwarnings("error")
         tiles_usefulnesses = parallel.launch_calls(cfg, disparity_range_check, tiles_pairs, nb_workers,
                               timeout=timeout)
-        warnings.resetwarnings()
         # some feedback
         for x, b in zip(tiles_pairs, tiles_usefulnesses):
             if not b: logger.info('  removed tile: %s', x[1].dir)

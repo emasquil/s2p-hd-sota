@@ -1,19 +1,18 @@
-# S2P - Satellite Stereo Pipeline
+# S2P-hd - Satellite Stereo Pipeline
 
 ![Build Status](https://github.com/centreborelli/s2p/actions/workflows/build.yml/badge.svg)
 ![Tests Status](https://github.com/centreborelli/s2p/actions/workflows/tests.yml/badge.svg)
 [![PyPI version](https://img.shields.io/pypi/v/s2p)](https://pypi.org/project/s2p)
 
-S2P is a Python library and command line tool that implements a stereo
+S2P-hd is a Python library and command line tool that implements a stereo
 pipeline which produces elevation models from images taken by high resolution
 optical satellites such as Pléiades, WorldView, QuickBird, Spot or Ikonos. It
 generates 3D point clouds and digital surface models from stereo pairs (two
 images) or tri-stereo sets (three images) in a completely automatic fashion.
 
-S2P was used to win the 2016 [IARPA Multi-View Stereo 3D Mapping Challenge](https://www.iarpa.gov/challenges/3dchallenge.html).
+S2P-hd builds upon and improves [S2P](https://github.com/centreborelli/s2p), which was used to win the 2016 [IARPA Multi-View Stereo 3D Mapping Challenge](https://www.iarpa.gov/challenges/3dchallenge.html).
 
-A wide variety of stereo correlation algorithms are supported, including several
-flavors of semi-global matching (SGM), TV-L1 optical flow, etc.
+A wide variety of stereo correlation algorithms are supported, including a gu-accelerated version of semi-global matching (SGM), MGM, TV-L1 optical flow, etc.
 
 The main language is Python, although several operations are handled by
 binaries written in C.
@@ -23,7 +22,7 @@ to produce surface models and 3D point clouds from arbitrarily large regions
 of interest or from complete images. If needed, it cuts the region of interest
 in several small tiles and process them in parallel.
 
-Its main source code repository is https://github.com/centreborelli/s2p.
+Its main source code repository is https://github.com/centreborelli/s2p-hd.
 
 
 # Dependencies
@@ -45,25 +44,22 @@ and install the `.dmg` file.
 
 On Ubuntu:
 
-    sudo apt install build-essential libfftw3-dev libgeotiff-dev libtiff5-dev
+    sudo apt install build-essential libfftw3-dev libgeotiff-dev libtiff5-dev cmake gdal-bin
 
 On macOS:
 
-    brew install fftw libtiff
+    brew install fftw libtiff cmake
 
-If lacking administrative privedges to run `sudo`, all these dependencies exist as conda 
+If lacking administrative privileges to run `sudo`, all these dependencies exist as conda 
 packages and can be installed in a user directory. Then the path to them can be specified
 in the s2p makefiles if compiling it from source. 
 
 # Installation
 
-    pip install s2p
+Install it in editable mode from a git clone:
 
-Alternatively, if you want to get the latest commit or want to edit the
-sources, install it in editable mode from a git clone:
-
-    git clone https://github.com/centreborelli/s2p.git 
-    cd s2p
+    git clone https://github.com/centreborelli/s2p-hd.git --recursive 
+    cd s2p-hd
     pip install -e ".[test]"
 
 Some python rely on external binaries. Most of these binaries
@@ -72,11 +68,11 @@ provided here in the `c` folder. For the other binaries, the source code is
 provided in the `3rdparty` folder.
 
 All the sources (ours and 3rdparties) are compiled from the same makefile. Just
-run `make all` from the `s2p` folder to compile them. This will create a `bin`
+run `make all` from the `s2p-hd` folder to compile them. This will create a `bin`
 directory containing all the needed binaries. This makefile is used when
 running `pip install .`
 
-You can test if S2P is correctly working using:
+You can test if s2p-hd is correctly working using:
 
     make test
 
@@ -85,7 +81,7 @@ data is not correctly downloaded.  You can force its download by running
 
     pyproj sync -v --file us_nga_egm96_15
 
-If some libraries needed by `s2p` (such as `libfftw3`) are installed in a custom location,
+If some libraries needed by `s2p-hd` (such as `libfftw3`) are installed in a custom location,
 for example `/usr/joe/local`, then the compilation and tests will fail with exit status 127
 or mentioning not being able to load shared  libaries.  You can help the compiler to find
 these libraries by defining the following variables:
@@ -100,17 +96,9 @@ The following invocation can be used then on Linux:
 and the same for the `s2p` command later. One macOS one may use instead 
 `DYLD_FALLBACK_LIBRARY_PATH`.
 
-## Docker image (old)
-[![Docker Status](http://dockeri.co/image/cmla/s2p)](https://hub.docker.com/r/cmla/s2p/)
-
-A precompiled docker image is available and ready to use:
-
-    docker pull cmla/s2p
-
-
 # Usage
 
-`s2p` is a Python library that can be imported into other applications. It also
+`s2p-hd` is a Python library that can be imported into other applications. It also
 comes with a Command Line Interface (CLI).
 
 ## From the command line
@@ -161,6 +149,11 @@ file location, not to the current working directory.
 ## References
 
 If you use this software please cite the following papers:
+
+[*s2p-hd: Gpu-Accelerated Binocular Stereo Pipeline for Large-Scale 
+Same-Date Stereo*](https://hal.science/view/index/docid/5051235), Tristan Amadei, 
+Enric Meinhardt-Llopis, Carlo de Franchis, Jeremy Anger, Thibaud Ehret, 
+Gabriele Facciolo. CVPR EarthVision 2025.
 
 [*An automatic and modular stereo pipeline for pushbroom
 images*](http://dx.doi.org/10.5194/isprsannals-II-3-49-2014), Carlo de

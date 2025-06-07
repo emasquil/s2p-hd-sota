@@ -44,7 +44,7 @@ and install the `.dmg` file.
 
 On Ubuntu:
 
-    sudo apt install build-essential libfftw3-dev libgeotiff-dev libtiff5-dev cmake gdal-bin
+    sudo apt install build-essential libfftw3-dev libgeotiff-dev libopencv-dev libtiff5-dev cmake gdal-bin
 
 On macOS:
 

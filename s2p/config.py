@@ -236,4 +236,7 @@ def get_default_config() -> dict:
     # "min" or "max": pixel-wise (min or max) of existing and new
     cfg['dsm_merging_method'] = "max"
 
+    # Flag to configure the range of the disparity map.
+    cfg['disp_range_flag'] = "positive"
+
     return cfg

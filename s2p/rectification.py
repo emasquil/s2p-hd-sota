@@ -235,7 +235,9 @@ def disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2, matches, A=None):
 
     # impose a minimal disparity range (TODO this is valid only with the
     # 'center' flag for register_horizontally_translation)
-    disp = min(-3, disp[0]), max(3, disp[1])
+    # (elias) add this IF to account for the previous comment
+    if cfg['disp_range_flag'] == 'center':
+        disp = min(-3, disp[0]), max(3, disp[1])
 
     logging.info("Final disparity range: %s", disp)
     return disp
@@ -352,8 +354,7 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
                 category=NoHorizontalRegistrationWarning,
             )
         else:
-            H2 = register_horizontally_translation(sift_matches, H1, H2,
-                                                   debug=debug)
+            H2 = register_horizontally_translation(sift_matches, H1, H2, flag=cfg['disp_range_flag'], debug=debug)
 
     # compute disparity range
     if debug and sift_matches is not None:
@@ -367,6 +368,15 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
 
     disp_m, disp_M = disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2,
                                      sift_matches, A)
+
+    if cfg['disp_range_flag'] == 'positive' and disp_m < 0:
+        logging.warning("Disparity range is negative, but 'positive' flag is set. "
+                        "Adjusting disparity range to be positive by shifting the secondary image.")
+        T = common.matrix_translation(-disp_m, 0)
+        H2 = np.dot(T, H2)
+        disp_m, disp_M = disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2,
+                                        sift_matches, A)
+        logging.info("Disparity range after horizontal registration: %s", (disp_m, disp_M))
 
     # recompute hmargin and homographies
     hmargin = int(np.ceil(max([hmargin, np.fabs(disp_m), np.fabs(disp_M)])))

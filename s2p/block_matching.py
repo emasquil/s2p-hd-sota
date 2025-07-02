@@ -392,3 +392,7 @@ def compute_disparity_map(cfg, im1, im2, disp, mask, algo, disp_min=None,
         )
 
         create_rejection_mask(disp, im1, im2, mask)
+
+    if algo == "stereoanywhere":
+        from s2p.sota_correlators.stereoanywhere import disparity
+        disparity.run(im1, im2, cfg["mono_ckpt"], cfg["stereo_ckpt"],  disp, mask)

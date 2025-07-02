@@ -1,0 +1,17 @@
+albumentations
+cmapy
+kornia
+matplotlib
+numba
+numpy
+opencv_contrib_python
+opencv_python
+opt_einsum
+Pillow
+scikit_learn
+timm==1.0.15
+torch
+torchvision
+tqdm
+xformers==0.0.27.post2
+iio

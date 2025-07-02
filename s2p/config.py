@@ -239,4 +239,10 @@ def get_default_config() -> dict:
     # Flag to configure the range of the disparity map.
     cfg['disp_range_flag'] = "positive"
 
+    # Stereo matching parameters for the stereoanywhere correlator
+    cfg['stereo_ckpt'] = None  # Path to the stereoanywhere checkpoint
+    cfg['mono_ckpt'] = None  # Path to the monoanywhere checkpoint
+
+    cfg['horizontal_translation_margin'] = 0.0  # Margin to add to the horizontal translation for disparity range adjustment
+
     return cfg

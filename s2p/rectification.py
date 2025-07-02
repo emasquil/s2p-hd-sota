@@ -86,7 +86,7 @@ def register_horizontally_shear(matches, H1, H2, debug=False):
     return np.dot(np.array([[a, b, c], [0, 1, 0], [0, 0, 1]]), H2)
 
 
-def register_horizontally_translation(matches, H1, H2, flag='center', debug=False):
+def register_horizontally_translation(matches, H1, H2, flag='center', debug=False, t_margin=0):
     """
     Adjust rectifying homographies with a translation to modify the disparity range.
 
@@ -98,6 +98,8 @@ def register_horizontally_translation(matches, H1, H2, flag='center', debug=Fals
             'positive': make all the disparities positive
             'negative': make all the disparities negative. Required for
                 Hirshmuller stereo (java)
+        debug: if True, print some debug information
+        t_margin: additional margin to add to the disparity range
 
     Returns:
         H2: corrected homography H2
@@ -129,7 +131,10 @@ def register_horizontally_translation(matches, H1, H2, flag='center', debug=Fals
         t = np.min(x2 - x1)
     if (flag == 'negative'):
         t = np.max(x2 - x1)
+        logging.info(f"Maximum disparity before horizontal registration: {t}")
 
+    # elias: add this to shift a bit more the disparity range so the stereo matcher works better
+    t += t_margin  # add a margin to the disparity range
     # correct H2 with a translation
     return np.dot(common.matrix_translation(-t, 0), H2)
 
@@ -154,9 +159,9 @@ def disparity_range_from_matches(matches, H1, H2, disp_range_extra_margin):
     x2 = p2[:, 0]
 
     # compute the final disparity range
-    #disp_min = np.floor(np.min(x2 - x1))
-    #disp_max = np.ceil(np.max(x2 - x1))
-    disp_min, disp_max = np.quantile (x2-x1, [0.01, 0.99])
+    disp_min = np.floor(np.min(x2 - x1))
+    disp_max = np.ceil(np.max(x2 - x1))
+    # disp_min, disp_max = np.quantile (x2-x1, [0.01, 0.99])
 
     # add a security margin to the disparity range
     disp_min -= (disp_max - disp_min) * disp_range_extra_margin
@@ -354,7 +359,12 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
                 category=NoHorizontalRegistrationWarning,
             )
         else:
-            H2 = register_horizontally_translation(sift_matches, H1, H2, flag=cfg['disp_range_flag'], debug=debug)
+            logging.info("Computing disparity range before horizontal registration")
+            disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2,
+                                    sift_matches, A)
+            H2 = register_horizontally_translation(
+                sift_matches, H1, H2, flag=cfg['disp_range_flag'],
+                debug=debug, t_margin=cfg["horizontal_translation_margin"])
 
     # compute disparity range
     if debug and sift_matches is not None:
@@ -369,10 +379,14 @@ def rectify_pair(cfg, im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None, sift
     disp_m, disp_M = disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2,
                                      sift_matches, A)
 
-    if cfg['disp_range_flag'] == 'positive' and disp_m < 0:
-        logging.warning("Disparity range is negative, but 'positive' flag is set. "
-                        "Adjusting disparity range to be positive by shifting the secondary image.")
-        T = common.matrix_translation(-disp_m, 0)
+    # elias: this was needed when the disparity_range had an added margin, so even in the case of already
+    # negative disparities, due to the margin, the disparity range could be positive.
+    # I think it's not needed anymore (if the margin for disparity range is set to 0),
+
+    if cfg['disp_range_flag'] == 'negative' and disp_M > 0:
+        logging.warning("Disparity range is positive, but 'negative' flag is set. "
+                        "Adjusting disparity range to be negative by shifting the secondary image.")
+        T = common.matrix_translation(-disp_M, 0)
         H2 = np.dot(T, H2)
         disp_m, disp_M = disparity_range(cfg, rpc1, rpc2, x, y, w, h, H1, H2,
                                         sift_matches, A)
